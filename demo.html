@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>示範 · 聲音與動作</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background:var(--ink); color:var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:48px;
+  }
+  .wrap{ max-width:620px; margin:0 auto; padding:0 16px; }
+  header{ padding:20px 0 16px; border-bottom:1px solid var(--line); }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  header p{ font-size:12px; color:var(--dim); margin-top:5px; line-height:1.6; }
+
+  .seg{ display:flex; border:1px solid var(--line); border-radius:9px;
+        overflow:hidden; margin:16px 0; }
+  .seg button{
+    flex:1; background:transparent; color:var(--dim); border:none;
+    border-right:1px solid var(--line); padding:10px 6px; cursor:pointer;
+    font-family:inherit; font-size:13.5px;
+  }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .card{ background:var(--ink-2); border:1px solid var(--line);
+         border-radius:12px; padding:18px 16px; margin-bottom:12px; }
+  h2{ font-size:15px; font-weight:700; margin-bottom:8px; }
+  .body{ font-size:13.5px; color:#C8CFCB; line-height:1.85; }
+  .body b{ color:var(--paper); font-weight:500; }
+  .body em{ font-style:normal; color:var(--amber); }
+
+  .picker{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .picker label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  select{
+    background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+    border-radius:8px; padding:8px 11px; font-family:"Archivo",sans-serif;
+    font-weight:700; font-size:15px; cursor:pointer;
+  }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .btn{
+    background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+    padding:10px 18px; font-family:inherit; font-size:13.5px; font-weight:700;
+    cursor:pointer;
+  }
+  .btn.alt{ background:transparent; color:var(--dim); border:1px solid var(--line); font-weight:500; }
+  .btn.alt:hover{ color:var(--paper); border-color:var(--dim); }
+  .btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .fig{ display:flex; justify-content:center; margin:16px 0 4px; }
+  .cap{ font-size:11.5px; color:var(--dim); text-align:center; line-height:1.7; }
+  svg{ display:block; max-width:100%; height:auto; }
+
+  .warn{
+    margin-top:14px; padding:11px 13px;
+    background:rgba(233,166,60,.09); border-left:2px solid var(--amber);
+    border-radius:0 7px 7px 0; font-size:13px; line-height:1.75; color:#E6DFCF;
+  }
+  .warn b{ color:var(--amber); font-weight:700; }
+  .anchor{ font-size:13px; color:#C8CFCB; margin-top:10px; line-height:1.8; }
+  .anchor b{ color:var(--amber); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <h1>示範 · 聲音與動作</h1>
+    <p>聽目標音、看手指怎麼動、看踏板什麼時候踩。姿勢類的東西這裡沒有——那要照鏡子。</p>
+  </header>
+
+  <div class="seg" id="inst">
+    <button type="button" data-v="guitar" aria-pressed="true">木吉他</button>
+    <button type="button" data-v="piano"  aria-pressed="false">鋼琴</button>
+  </div>
+
+  <div id="board"></div>
+
+</div>
+
+<script src="shared/chords.js"></script>
+<script src="shared/pitch.js"></script>
+<script src="shared/audio.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  if(!window.MP || !MP.chords || !MP.pitch || !MP.audio){
+    document.body.innerHTML = '<p style="max-width:620px;margin:48px auto;padding:0 16px;'+
+      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
+      '共用檔案載入失敗（需要 shared/chords.js、shared/pitch.js、shared/audio.js）。'+
+      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+    return;
+  }
+
+  var SVGNS="http://www.w3.org/2000/svg";
+  var $=function(id){ return document.getElementById(id); };
+  function mk(t,a){ var e=document.createElementNS(SVGNS,t); for(var k in a) e.setAttribute(k,a[k]); return e; }
+  function tx(x,y,s,o){ o=o||{};
+    var t=mk("text",{x:x,y:y,"text-anchor":o.anchor||"middle",
+      "font-family":o.mono?"Archivo, sans-serif":"'Noto Sans TC', sans-serif",
+      "font-size":o.size||12,"font-weight":o.weight||600,fill:o.fill||"var(--paper)"});
+    t.textContent=s; return t; }
+
+  /* ================= 音訊 ================= */
+
+  var ctx=null, master=null;
+  function audio(){
+    if(!ctx){
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      master=ctx.createGain(); master.gain.value=0.5; master.connect(ctx.destination);
+    }
+    if(ctx.state==="suspended") ctx.resume();
+    return ctx;
+  }
+  var mtof=MP.pitch.mtof;
+
+  /* 音色是「先算好取樣緩衝再播」，不是用 oscillator 逼近。
+     吉他是真正的 Karplus–Strong，參數移植自 PitchPal。見 shared/audio.js。
+     GAIN 是把單音音量壓到能同時疊好幾個而不爆掉的係數。 */
+  var GAIN={ guitar:0.30, piano:0.22 };
+
+  function pluck(buffer,t){
+    MP.audio.playBuffer(ctx,master,buffer,t,
+      { cutoff:MP.audio.LOWPASS.guitar, gain:GAIN.guitar });
+  }
+  function key(buffer,t){
+    MP.audio.playBuffer(ctx,master,buffer,t,
+      { cutoff:MP.audio.LOWPASS.piano, gain:GAIN.piano });
+  }
+
+  /* ================= 吉他資料 ================= */
+
+  var OPEN=MP.chords.GUITAR_TUNING;
+
+  /* 這個模組要示範的吉他和弦。指型資料在 shared/chords.js，這裡只列要顯示哪幾個。 */
+  var GUITAR_LIST=["A","Am","C","D","Dm","E","Em","G"];
+  var G={};
+  GUITAR_LIST.forEach(function(k){ G[k]=MP.chords.GUITAR_SHAPES[k]; });
+
+  var gFrom="A", gTo="D", gPhase=0, gRaf=null;
+  var STRUM_DUR=1.5, STRUM_SPREAD=0.028;
+
+  /* 緩衝要先算好再決定起始時間，不然合成的耗時會讓前幾個音被切掉 */
+  function strumVoices(name){
+    var out=[];
+    G[name].frets.forEach(function(fr,s){
+      if(fr===null) return;
+      out.push({ buffer:MP.audio.guitarBuffer(ctx,mtof(OPEN[s]+fr),STRUM_DUR),
+                 delay:s*STRUM_SPREAD });
+    });
+    return out;
+  }
+  function playVoices(voices,t0,play){
+    voices.forEach(function(v){ play(v.buffer, t0+v.delay); });
+  }
+
+  var fingerPos=MP.chords.fingerPositions;
+
+  function anchors(){ return MP.chords.commonFingers(G[gFrom], G[gTo]); }
+
+  function animBoard(p){
+    var W=210,SP=34,X0=22,Y0=48,FH=40,NF=4;
+    var svg=mk("svg",{viewBox:"0 0 "+W+" "+(Y0+FH*NF+16),width:W});
+    svg.appendChild(mk("rect",{x:X0-3,y:Y0-6,width:SP*5+6,height:6,fill:"var(--paper)",rx:1.5}));
+    for(var f=1;f<=NF;f++)
+      svg.appendChild(mk("line",{x1:X0,y1:Y0+FH*f,x2:X0+SP*5,y2:Y0+FH*f,stroke:"var(--line)","stroke-width":1.5}));
+    for(var s=0;s<6;s++)
+      svg.appendChild(mk("line",{x1:X0+SP*s,y1:Y0,x2:X0+SP*s,y2:Y0+FH*NF,stroke:"var(--line)","stroke-width":1.5}));
+
+    var cur = p<0.5 ? G[gFrom] : G[gTo];
+    cur.frets.forEach(function(fr,s){
+      var x=X0+SP*s, y=Y0-18;
+      if(fr===null){
+        var g=mk("g",{stroke:"var(--dim)","stroke-width":1.8,"stroke-linecap":"round"});
+        g.appendChild(mk("line",{x1:x-5,y1:y-5,x2:x+5,y2:y+5}));
+        g.appendChild(mk("line",{x1:x+5,y1:y-5,x2:x-5,y2:y+5}));
+        svg.appendChild(g);
+      } else if(fr===0){
+        svg.appendChild(mk("circle",{cx:x,cy:y,r:5.5,fill:"none",stroke:"var(--paper)","stroke-width":1.8}));
+      }
+    });
+
+    var a=fingerPos(G[gFrom]), b=fingerPos(G[gTo]), anc=anchors();
+    var e = p<0.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+
+    [1,2,3,4].forEach(function(fg){
+      var A=a[fg], B=b[fg];
+      if(!A && !B) return;
+      var held = anc.indexOf(String(fg))>=0;
+      var pos, op;
+      if(A && B){ 
+        pos={ s:A.s+(B.s-A.s)*e, f:A.f+(B.f-A.f)*e }; op=1;
+      } else if(A){ pos=A; op=1-e; }
+      else { pos=B; op=e; }
+      var cx=X0+SP*pos.s, cy=Y0+FH*(pos.f-1)+FH/2;
+      svg.appendChild(mk("circle",{cx:cx,cy:cy,r:10.5,
+        fill: held?"var(--amber)":"var(--paper)", opacity:op}));
+      svg.appendChild(tx(cx,cy+4,fg,{size:12,weight:800,mono:true,
+        fill: held?"#241703":"var(--ink)", }));
+    });
+    return svg;
+  }
+
+  function guitarPanel(){
+    var b=$("board"); b.innerHTML="";
+
+    var c=document.createElement("div"); c.className="card";
+    c.innerHTML='<h2>換和弦時，手指怎麼走</h2><p class="body">'+
+      '初學卡住的不是「按得住」，是「換得過去」。看哪根手指<em>不用動</em>，把它當支點，'+
+      '其他手指繞著它走——換和弦就會快很多。</p>';
+
+    var pick=document.createElement("div"); pick.className="picker";
+    function sel(v,on){
+      var s=document.createElement("select");
+      Object.keys(G).forEach(function(k){
+        var o=document.createElement("option"); o.value=k; o.textContent=k;
+        if(k===v) o.selected=true; s.appendChild(o);
+      });
+      s.addEventListener("change",function(){ on(s.value); guitarPanel(); });
+      return s;
+    }
+    var l1=document.createElement("label"); l1.textContent="從";
+    var l2=document.createElement("label"); l2.textContent="到";
+    pick.appendChild(l1); pick.appendChild(sel(gFrom,function(v){gFrom=v;}));
+    pick.appendChild(l2); pick.appendChild(sel(gTo,function(v){gTo=v;}));
+    c.appendChild(pick);
+
+    var fig=document.createElement("div"); fig.className="fig";
+    fig.appendChild(animBoard(gPhase));
+    c.appendChild(fig);
+
+    var anc=anchors();
+    var an=document.createElement("p"); an.className="anchor";
+    an.innerHTML = anc.length
+      ? "不用動的手指：<b>"+anc.map(function(f){return f+"號";}).join("、")+"</b>（圖上橘色）。按著別放。"
+      : "這組沒有共同的支點手指，整隻手要重新擺。慢慢來，先求準。";
+    c.appendChild(an);
+
+    var row=document.createElement("div"); row.className="btnrow";
+    var b1=document.createElement("button"); b1.className="btn"; b1.textContent="▶ 播放動作";
+    b1.addEventListener("click",function(){
+      cancelAnimationFrame(gRaf);
+      var t0=performance.now();
+      (function loop(now){
+        var p=Math.min(1,(now-t0)/1400);
+        fig.innerHTML=""; fig.appendChild(animBoard(p));
+        if(p<1) gRaf=requestAnimationFrame(loop);
+        else setTimeout(function(){ gPhase=0; fig.innerHTML=""; fig.appendChild(animBoard(0)); },900);
+      })(t0);
+    });
+    var b2=document.createElement("button"); b2.className="btn alt"; b2.textContent="♪ 聽兩個和弦";
+    b2.addEventListener("click",function(){
+      audio();
+      var v1=strumVoices(gFrom), v2=strumVoices(gTo);
+      var t=ctx.currentTime+0.05;
+      playVoices(v1,t,pluck);
+      playVoices(v2,t+STRUM_DUR,pluck);
+    });
+    row.appendChild(b1); row.appendChild(b2);
+    c.appendChild(row);
+
+    var w=document.createElement("div"); w.className="warn";
+    w.innerHTML="<b>聽起來悶悶的、有雜音？</b>八成是手指沒立起來、壓到旁邊的弦，或是按太靠格子中間。一根一根單獨撥，找出是哪條弦沒響。";
+    c.appendChild(w);
+
+    b.appendChild(c);
+  }
+
+  /* ================= 鋼琴 ================= */
+
+  /* 這個模組要示範的鋼琴和弦。root/quality 在 shared/chords.js。 */
+  var PIANO_LIST=["C","Dm","Em","F","G","Am","D","A","E"];
+
+  var pProg=["C","G","Am","F"], pMode="sync", pRaf=null;
+
+  function triad(n){
+    var d=MP.chords.PIANO_CHORDS[n];
+    return MP.chords.triad(d.root, d.q).map(function(s){ return 60+s; });
+  }
+  function triadVoices(n,dur){
+    return triad(n).map(function(m){ return MP.audio.pianoBuffer(ctx,mtof(m),dur); });
+  }
+
+  var MODES={
+    none: { label:"不用踏板",   dur:0.55, note:"每個和弦之間有空隙，聽起來斷斷續續。" },
+    hold: { label:"一直踩著",   dur:3.6,  note:"前一個和弦沒放掉，跟新和弦疊在一起——糊掉了。這是最常見的錯誤。" },
+    sync: { label:"切分踩法 ✓", dur:1.05, note:"換和弦的瞬間<b>先放</b>踏板，新和弦彈下去<b>之後</b>再踩回去。聲音連得起來又不糊。" }
+  };
+
+  function playProg(){
+    audio();
+    var step=1.0, m=MODES[pMode];
+    /* 先把所有緩衝算完，再取 currentTime —— 合成 3.6 秒 × 12 個音要一點時間 */
+    var voices=pProg.map(function(n){ return triadVoices(n,m.dur); });
+    var t0=ctx.currentTime+0.08;
+    voices.forEach(function(bufs,i){
+      bufs.forEach(function(bf){ key(bf,t0+i*step); });
+    });
+    animate(t0,step*pProg.length);
+  }
+
+  function pedalFig(playhead){
+    var W=300,H=132,X0=8,BW=(W-16)/4;
+    var svg=mk("svg",{viewBox:"0 0 "+W+" "+H,width:W});
+
+    pProg.forEach(function(n,i){
+      svg.appendChild(mk("rect",{x:X0+BW*i+2,y:14,width:BW-4,height:38,rx:6,
+        fill:"var(--ink-3)",stroke:"var(--line)"}));
+      svg.appendChild(tx(X0+BW*i+BW/2,39,n,{size:16,weight:800,mono:true}));
+    });
+    svg.appendChild(tx(X0,8,"和弦",{size:9.5,fill:"var(--dim)",anchor:"start"}));
+    svg.appendChild(tx(X0,72,"踏板",{size:9.5,fill:"var(--dim)",anchor:"start"}));
+
+    var yD=100, yU=80;
+    var pts=[];
+    if(pMode==="none"){
+      pts=[[X0,yU],[X0+BW*4,yU]];
+    } else if(pMode==="hold"){
+      pts=[[X0,yU],[X0+6,yD],[X0+BW*4,yD]];
+    } else {
+      pts.push([X0,yU],[X0+10,yD]);
+      for(var i=1;i<4;i++){
+        var x=X0+BW*i;
+        pts.push([x-3,yD],[x,yU],[x+14,yU],[x+18,yD]);
+      }
+      pts.push([X0+BW*4,yD]);
+    }
+    var d=pts.map(function(p,i){ return (i?"L":"M")+p[0]+" "+p[1]; }).join(" ");
+    svg.appendChild(mk("path",{d:d,fill:"none",stroke:"var(--amber)",
+      "stroke-width":2.4,"stroke-linejoin":"round"}));
+    svg.appendChild(tx(W-4,yU-5,"放",{size:9.5,fill:"var(--dim)",anchor:"end"}));
+    svg.appendChild(tx(W-4,yD+13,"踩",{size:9.5,fill:"var(--dim)",anchor:"end"}));
+
+    if(playhead!==null){
+      var px=X0+BW*4*playhead;
+      svg.appendChild(mk("line",{x1:px,y1:10,x2:px,y2:118,
+        stroke:"var(--paper)","stroke-width":1.2,opacity:.7}));
+    }
+    return svg;
+  }
+
+  function animate(t0,dur){
+    cancelAnimationFrame(pRaf);
+    var fig=$("pedalfig");
+    (function loop(){
+      if(!fig) return;
+      var p=(ctx.currentTime-t0)/dur;
+      fig.innerHTML=""; fig.appendChild(pedalFig(Math.max(0,Math.min(1,p))));
+      if(p<1) pRaf=requestAnimationFrame(loop);
+      else { fig.innerHTML=""; fig.appendChild(pedalFig(null)); }
+    })();
+  }
+
+  function pianoPanel(){
+    var b=$("board"); b.innerHTML="";
+
+    var c1=document.createElement("div"); c1.className="card";
+    c1.innerHTML='<h2>先聽三和弦</h2><p class="body">'+
+      '按下去之前先知道它該長什麼樣。聽完再彈，你會馬上知道自己有沒有按錯鍵。</p>';
+    var row1=document.createElement("div"); row1.className="btnrow";
+    PIANO_LIST.forEach(function(n){
+      var bt=document.createElement("button");
+      bt.className="btn alt"; bt.textContent=n;
+      bt.style.fontFamily="Archivo, sans-serif"; bt.style.fontWeight="700";
+      bt.addEventListener("click",function(){
+        audio();
+        var bufs=triadVoices(n,2.2);
+        var t=ctx.currentTime+0.05;
+        bufs.forEach(function(bf){ key(bf,t); });
+      });
+      row1.appendChild(bt);
+    });
+    c1.appendChild(row1);
+    b.appendChild(c1);
+
+    var c2=document.createElement("div"); c2.className="card";
+    c2.innerHTML='<h2>延音踏板的時機</h2><p class="body">'+
+      '踏板不是「踩著就好」。踩錯時機比不踩還難聽——前後兩個和弦會疊在一起變成一團。<br>'+
+      '三種踩法都聽一次，差別非常明顯。</p>';
+
+    var seg=document.createElement("div"); seg.className="seg";
+    Object.keys(MODES).forEach(function(k){
+      var bt=document.createElement("button");
+      bt.type="button"; bt.textContent=MODES[k].label;
+      bt.setAttribute("aria-pressed", k===pMode?"true":"false");
+      bt.addEventListener("click",function(){ pMode=k; pianoPanel(); });
+      seg.appendChild(bt);
+    });
+    c2.appendChild(seg);
+
+    var fig=document.createElement("div");
+    fig.className="fig"; fig.id="pedalfig";
+    fig.appendChild(pedalFig(null));
+    c2.appendChild(fig);
+
+    var cap=document.createElement("p"); cap.className="cap";
+    cap.innerHTML=MODES[pMode].note;
+    c2.appendChild(cap);
+
+    var row2=document.createElement("div"); row2.className="btnrow";
+    var pb=document.createElement("button");
+    pb.className="btn"; pb.textContent="▶ 播放 C – G – Am – F";
+    pb.addEventListener("click",playProg);
+    row2.appendChild(pb);
+    c2.appendChild(row2);
+
+    var w=document.createElement("div"); w.className="warn";
+    w.innerHTML="<b>切分踩法是唯一要練成反射的踏板動作。</b>口訣：<b>手先，腳後</b>。新和弦的手按下去了，腳才踩回去。順序反過來就會糊。";
+    c2.appendChild(w);
+
+    b.appendChild(c2);
+  }
+
+  /* ================= 切換 ================= */
+
+  var inst="guitar";
+  function render(){ inst==="guitar" ? guitarPanel() : pianoPanel(); }
+
+  $("inst").addEventListener("click",function(e){
+    var bt=e.target.closest("button"); if(!bt) return;
+    cancelAnimationFrame(gRaf); cancelAnimationFrame(pRaf);
+    inst=bt.dataset.v;
+    Array.prototype.forEach.call(this.children,function(x){
+      x.setAttribute("aria-pressed",x===bt?"true":"false");
+    });
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

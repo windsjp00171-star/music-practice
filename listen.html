@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>聽我彈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background:var(--ink); color:var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:48px;
+  }
+  .wrap{ max-width:620px; margin:0 auto; padding:0 16px; }
+
+  header{ padding:20px 0 14px; border-bottom:1px solid var(--line); }
+  .htop{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  header p{ font-size:12px; color:var(--dim); margin-top:6px; line-height:1.65; }
+
+  .mic{
+    background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+    padding:9px 18px; font-family:inherit; font-size:13.5px; font-weight:700;
+    cursor:pointer; flex:0 0 auto;
+  }
+  .mic.on{ background:var(--amber); color:#241703; }
+  .mic:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+
+  .seg{ display:flex; border:1px solid var(--line); border-radius:9px;
+        overflow:hidden; margin:16px 0 20px; }
+  .seg > button{
+    flex:1; background:transparent; color:var(--dim); border:none;
+    border-right:1px solid var(--line); padding:11px 6px; cursor:pointer;
+    font-family:inherit; font-size:13px;
+  }
+  .seg > button:last-child{ border-right:none; }
+  .seg > button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg > button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .card{ background:var(--ink-2); border:1px solid var(--line);
+         border-radius:12px; padding:18px 16px; margin-bottom:12px; }
+  h2{ font-size:14.5px; font-weight:700; margin-bottom:8px; }
+  .body{ font-size:13px; color:#C8CFCB; line-height:1.8; }
+  .body b{ color:var(--paper); font-weight:500; }
+
+  .err{
+    background:rgba(216,105,94,.1); border-left:2px solid var(--bad);
+    border-radius:0 7px 7px 0; padding:12px 13px; font-size:13px; line-height:1.8;
+    color:#F0D6D2;
+  }
+  .err b{ color:var(--bad); }
+  .err code{ font-family:"Archivo",monospace; background:rgba(0,0,0,.25);
+             padding:1px 5px; border-radius:3px; font-size:12px; }
+
+  /* 大字讀數 */
+  .read{ text-align:center; padding:8px 0 4px; }
+  .note{ font-family:"Archivo",sans-serif; font-weight:800;
+         font-size:clamp(56px,16vw,96px); line-height:.9; letter-spacing:-.03em; }
+  .note.dim{ color:var(--ink-3); }
+  .note sup{ font-size:.36em; position:relative; top:-.9em; left:.04em; }
+  .hz{ font-family:"Archivo",sans-serif; font-size:13px; color:var(--dim);
+       font-variant-numeric:tabular-nums; margin-top:6px; }
+
+  /* 指針 */
+  .meter{ position:relative; height:44px; margin:14px 0 4px; }
+  .meter .rail{ position:absolute; top:20px; left:0; right:0; height:2px;
+                background:var(--ink-3); border-radius:1px; }
+  .meter .center{ position:absolute; top:12px; left:50%; width:2px; height:18px;
+                  background:var(--dim); transform:translateX(-50%); }
+  .meter .needle{ position:absolute; top:6px; width:3px; height:30px;
+                  background:var(--amber); border-radius:2px;
+                  transform:translateX(-50%); transition:left .08s linear; }
+  .meter .needle.ok{ background:var(--good); }
+  .meter .scale{ display:flex; justify-content:space-between; margin-top:26px;
+                 font-size:10px; color:var(--dim); font-family:"Archivo",sans-serif; }
+  .verdict{ text-align:center; font-size:13.5px; font-weight:700; margin-top:8px;
+            min-height:1.4em; }
+  .verdict.ok{ color:var(--good); }
+  .verdict.off{ color:var(--amber); }
+
+  /* 弦列表 */
+  .strings{ display:flex; flex-direction:column; gap:7px; margin-top:6px; }
+  .srow{
+    display:flex; align-items:center; gap:11px;
+    border:1px solid var(--line); border-radius:9px; padding:10px 12px;
+    background:transparent;
+  }
+  .srow.active{ border-color:var(--amber); background:rgba(233,166,60,.07); }
+  .srow.pass{ border-color:var(--good); }
+  .srow.fail{ border-color:var(--bad); }
+  .sno{ font-size:11.5px; color:var(--dim); flex:0 0 44px; }
+  .starget{ font-family:"Archivo",sans-serif; font-weight:800; font-size:16px;
+            flex:0 0 46px; }
+  .sres{ font-size:12.5px; color:var(--dim); flex:1 1 auto; line-height:1.5; }
+  .sres b{ font-weight:700; }
+  .sres.pass b{ color:var(--good); }
+  .sres.fail b{ color:var(--bad); }
+  .smark{ font-family:"Archivo",sans-serif; font-weight:800; font-size:16px; flex:0 0 auto; }
+
+  .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .btn{ background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+        padding:10px 17px; font-family:inherit; font-size:13px; font-weight:700;
+        cursor:pointer; }
+  .btn.alt{ background:transparent; color:var(--dim); border:1px solid var(--line);
+            font-weight:500; }
+  .btn.alt:hover{ color:var(--paper); border-color:var(--dim); }
+  .btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  select{ background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+          border-radius:8px; padding:8px 11px; font-family:"Archivo",sans-serif;
+          font-weight:700; font-size:15px; cursor:pointer; }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .picker{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .picker label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <div class="htop">
+      <h1>聽我彈</h1>
+      <button class="mic" id="mic" type="button">開啟麥克風</button>
+    </div>
+    <p>只做「單音」判斷——單音準得住。整個和弦一次刷下去的辨識不可靠，所以和弦改成逐弦檢查。</p>
+  </header>
+
+  <div id="gate"></div>
+
+  <div id="main" class="hidden">
+    <div class="seg" id="mode">
+      <button type="button" data-v="tune"  aria-pressed="true">調音</button>
+      <button type="button" data-v="chord" aria-pressed="false">逐弦檢查</button>
+      <button type="button" data-v="free"  aria-pressed="false">認音</button>
+    </div>
+    <div id="board"></div>
+  </div>
+
+</div>
+
+<script src="shared/chords.js"></script>
+<script src="shared/pitch.js"></script>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){ return document.getElementById(id); };
+
+  if(!window.MP || !MP.chords || !MP.pitch){
+    document.body.innerHTML = '<p style="max-width:620px;margin:48px auto;padding:0 16px;'+
+      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
+      '共用檔案載入失敗（需要 shared/chords.js 與 shared/pitch.js）。'+
+      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+    return;
+  }
+
+  var OPEN=MP.chords.GUITAR_TUNING;          // 第6弦 → 第1弦 MIDI
+  var SNAMES=MP.chords.STRING_NAMES;
+
+  /* 逐弦檢查提供的和弦。指型資料在 shared/chords.js，這裡只列要顯示哪幾個。 */
+  var CHORD_LIST=["Em","Am","A","D","Dm","E","C","G"];
+  var CHORDS={};
+  CHORD_LIST.forEach(function(k){ CHORDS[k]=MP.chords.GUITAR_SHAPES[k].frets; });
+
+  var mtof=MP.pitch.mtof, ftom=MP.pitch.ftom;
+  var nameOf=MP.pitch.nameOf, octOf=MP.pitch.octOf;
+
+  /* detect() 回 { rms, freq }；這裡沿用原本「沒有可信音高就是 null」的介面 */
+  function detect(buf, sr){
+    var r=MP.pitch.detect(buf, sr, { minRms:0.01 });
+    return r.freq === null ? null : r;
+  }
+
+  /* ---------- 麥克風 ---------- */
+
+  var mic=null, ctx=null, analyser=null, buf=null, raf=null, live=false;
+
+  function gateMsg(html){
+    $("gate").innerHTML='<div class="card"><div class="err">'+html+'</div></div>';
+  }
+
+  var insecure=MP.pitch.isInsecure;
+
+  var GATE_MSG={
+    insecure:
+      "<b>這個環境拿不到麥克風。</b><br>"+
+      "瀏覽器只允許 <code>https://</code> 或 <code>localhost</code> 存取麥克風，"+
+      "直接雙擊開啟的 <code>file://</code> 檔案不行——這是硬性安全規則。<br><br>"+
+      "解法：把整包放上任何 HTTPS 靜態主機（GitHub Pages 免費、純靜態、不需要後端）。"+
+      "本機測試可以在資料夾裡跑 <code>python3 -m http.server</code>，再開 "+
+      "<code>localhost:8000</code>。",
+    unsupported:
+      "<b>這個瀏覽器不支援麥克風存取。</b>換 Safari 或 Chrome 試試。"
+  };
+
+  function startMic(){
+    MP.pitch.requestMic().then(function(handle){
+      mic=handle;
+      ctx=handle.ctx; analyser=handle.analyser; buf=handle.buf;
+      live=true;
+      $("gate").innerHTML="";
+      $("main").classList.remove("hidden");
+      $("mic").textContent="關閉麥克風";
+      $("mic").classList.add("on");
+      render();
+      loop();
+    }).catch(function(e){
+      gateMsg(GATE_MSG[e.code] ||
+        ("<b>麥克風被拒絕或無法開啟。</b><br>"+
+         "在瀏覽器網址列旁的權限設定裡允許麥克風，然後重試。<br>"+
+         "<code>"+(e.name || "unknown")+"</code>"));
+    });
+  }
+
+  function stopMic(){
+    live=false;
+    cancelAnimationFrame(raf);
+    MP.pitch.releaseMic(mic);
+    mic=null; ctx=null; analyser=null; buf=null;
+    $("main").classList.add("hidden");
+    $("mic").textContent="開啟麥克風";
+    $("mic").classList.remove("on");
+    $("gate").innerHTML="";
+  }
+
+  $("mic").addEventListener("click",function(){ live?stopMic():startMic(); });
+
+  /* ---------- 模式 ---------- */
+
+  var mode="tune";
+  var chordName="Em", step=0, results=[], stable=[], lastNote=null;
+
+  function render(){
+    var b=$("board"); b.innerHTML="";
+    if(mode==="tune")  b.appendChild(tunePanel());
+    if(mode==="chord") b.appendChild(chordPanel());
+    if(mode==="free")  b.appendChild(freePanel());
+  }
+
+  function bigRead(id){
+    var d=document.createElement("div"); d.className="read";
+    d.innerHTML='<div class="note dim" id="'+id+'">—</div>'+
+                '<div class="hz" id="'+id+'hz">等待聲音</div>';
+    return d;
+  }
+
+  function meter(id){
+    var d=document.createElement("div"); d.className="meter";
+    d.innerHTML='<div class="rail"></div><div class="center"></div>'+
+      '<div class="needle" id="'+id+'" style="left:50%"></div>'+
+      '<div class="scale"><span>−50</span><span>0</span><span>+50</span></div>';
+    return d;
+  }
+
+  function tunePanel(){
+    var c=document.createElement("div"); c.className="card";
+    c.innerHTML='<h2>調音</h2><p class="body">一條一條撥，撥完等指針停下來。'+
+      '綠色代表在 ±5 音分內，那就是準了。<br>由粗到細目標音：<b>E A D G B E</b>。</p>';
+    c.appendChild(bigRead("tn"));
+    c.appendChild(meter("tneedle"));
+    var v=document.createElement("div"); v.className="verdict"; v.id="tv";
+    c.appendChild(v);
+
+    var list=document.createElement("div"); list.className="strings";
+    OPEN.forEach(function(m,i){
+      var r=document.createElement("div"); r.className="srow"; r.id="tr"+i;
+      r.innerHTML='<span class="sno">第'+(6-i)+'弦</span>'+
+        '<span class="starget">'+SNAMES[i]+'</span>'+
+        '<span class="sres">'+mtof(m).toFixed(1)+' Hz</span>';
+      list.appendChild(r);
+    });
+    c.appendChild(list);
+    return c;
+  }
+
+  function chordPanel(){
+    var c=document.createElement("div"); c.className="card";
+    c.innerHTML='<h2>逐弦檢查</h2><p class="body">'+
+      '按住和弦，然後<b>從第 6 弦開始，一條一條撥下來</b>。'+
+      '系統會告訴你哪一條沒響、哪一條按錯格。</p>';
+
+    var pick=document.createElement("div"); pick.className="picker";
+    var lb=document.createElement("label"); lb.textContent="和弦";
+    var sel=document.createElement("select");
+    Object.keys(CHORDS).forEach(function(k){
+      var o=document.createElement("option"); o.value=k; o.textContent=k;
+      if(k===chordName) o.selected=true; sel.appendChild(o);
+    });
+    sel.addEventListener("change",function(){ chordName=sel.value; resetChord(); render(); });
+    pick.appendChild(lb); pick.appendChild(sel);
+    c.appendChild(pick);
+
+    var shape=CHORDS[chordName];
+    var list=document.createElement("div"); list.className="strings";
+    shape.forEach(function(fr,i){
+      var r=document.createElement("div"); r.className="srow"; r.id="cr"+i;
+      var res=results[i];
+      if(res==="pass") r.className+=" pass";
+      else if(res && res.wrong) r.className+=" fail";
+      else if(i===step) r.className+=" active";
+
+      var target = fr===null ? "✕" : nameOf(OPEN[i]+fr);
+      var msg, cls="", mark="";
+      if(fr===null){ msg="這條不彈"; }
+      else if(res==="pass"){ msg="乾淨"; cls="pass"; mark="✓"; }
+      else if(res && res.wrong==="dead"){ msg="<b>沒有聲音</b>——手指悶到了"; cls="fail"; mark="✕"; }
+      else if(res && res.wrong){ msg="<b>聽到 "+res.wrong+"</b>，按錯格了"; cls="fail"; mark="✕"; }
+      else if(i===step){ msg="撥這條…"; }
+      else { msg="等待"; }
+
+      r.innerHTML='<span class="sno">第'+(6-i)+'弦</span>'+
+        '<span class="starget">'+target+'</span>'+
+        '<span class="sres '+cls+'">'+msg+'</span>'+
+        '<span class="smark">'+mark+'</span>';
+      list.appendChild(r);
+    });
+    c.appendChild(list);
+
+    var row=document.createElement("div"); row.className="btnrow";
+    var b1=document.createElement("button");
+    b1.className="btn"; b1.textContent="重新開始";
+    b1.addEventListener("click",function(){ resetChord(); render(); });
+    var b2=document.createElement("button");
+    b2.className="btn alt"; b2.textContent="跳過這條";
+    b2.addEventListener("click",function(){ advance(); render(); });
+    row.appendChild(b1); row.appendChild(b2);
+    c.appendChild(row);
+
+    if(step>=6){
+      var bad=results.filter(function(r){ return r && r.wrong; }).length;
+      var d=document.createElement("p"); d.className="body";
+      d.style.marginTop="14px";
+      d.innerHTML = bad===0
+        ? "<b style='color:var(--good)'>六條都乾淨。</b>這個和弦過了。"
+        : "<b>還有 "+bad+" 條有問題。</b>手指立起來一點、往靠近金屬條的位置按，再試一次。";
+      c.appendChild(d);
+    }
+    return c;
+  }
+
+  function freePanel(){
+    var c=document.createElement("div"); c.className="card";
+    c.innerHTML='<h2>認音</h2><p class="body">彈任何一個單音，告訴你那是什麼音。'+
+      '吉他、鋼琴都可以。<br>鋼琴用這個驗第 1 關——隨便按一個白鍵，猜完再看答案。</p>';
+    c.appendChild(bigRead("fn"));
+    c.appendChild(meter("fneedle"));
+    return c;
+  }
+
+  function resetChord(){ step=0; results=[]; stable=[]; advanceMuted(); }
+  function advanceMuted(){
+    while(step<6 && CHORDS[chordName][step]===null){ results[step]="pass"; step++; }
+  }
+  function advance(){ stable=[]; step++; advanceMuted(); }
+
+  /* ---------- 主迴圈 ---------- */
+
+  var frame=0;
+  function loop(){
+    if(!live) return;
+    raf=requestAnimationFrame(loop);
+    frame++;
+    if(frame%4) return;                       // 約每 60ms 偵測一次
+
+    analyser.getFloatTimeDomainData(buf);
+    var d=detect(buf, ctx.sampleRate);
+
+    if(mode==="tune")  updateTune(d);
+    if(mode==="free")  updateFree(d);
+    if(mode==="chord") updateChord(d);
+  }
+
+  function setRead(id, d, targetMidi){
+    var el=$(id), hz=$(id+"hz"), nd=$(id==="tn"?"tneedle":"fneedle");
+    if(!el) return;
+    if(!d){
+      el.className="note dim"; el.textContent="—";
+      hz.textContent="等待聲音";
+      if(nd){ nd.style.left="50%"; nd.classList.remove("ok"); }
+      return;
+    }
+    var m=ftom(d.freq), ref = targetMidi===undefined ? Math.round(m) : targetMidi;
+    var cents=Math.round(1200*Math.log2(d.freq/mtof(ref)));
+    el.className="note";
+    el.innerHTML=nameOf(ref)+"<sup>"+octOf(ref)+"</sup>";
+    hz.textContent=d.freq.toFixed(1)+" Hz　"+(cents>0?"+":"")+cents+" 音分";
+    if(nd){
+      var p=Math.max(-50,Math.min(50,cents));
+      nd.style.left=(50+p)+"%";
+      nd.classList.toggle("ok", Math.abs(cents)<=5);
+    }
+    return cents;
+  }
+
+  function updateTune(d){
+    var v=$("tv");
+    for(var i=0;i<6;i++){ var r=$("tr"+i); if(r) r.className="srow"; }
+    if(!d){ setRead("tn",null); if(v){ v.textContent=""; v.className="verdict"; } return; }
+
+    var m=ftom(d.freq), bi=0, bd=1e9;
+    OPEN.forEach(function(om,i){
+      var diff=Math.abs(m-om);
+      if(diff<bd){ bd=diff; bi=i; }
+    });
+    var cents=setRead("tn",d,OPEN[bi]);
+    var row=$("tr"+bi);
+    if(row) row.className="srow active";
+    if(v){
+      if(Math.abs(cents)<=5){ v.textContent="第"+(6-bi)+"弦　準了"; v.className="verdict ok"; }
+      else { v.textContent="第"+(6-bi)+"弦　"+(cents<0?"太鬆，往上調":"太緊，往下調");
+             v.className="verdict off"; }
+    }
+  }
+
+  function updateFree(d){ setRead("fn",d); }
+
+  function updateChord(d){
+    if(step>=6) return;
+    var expect=OPEN[step]+CHORDS[chordName][step];
+
+    if(!d || d.rms<0.02){
+      stable.push(null);
+    } else {
+      stable.push(Math.round(ftom(d.freq)));
+    }
+    if(stable.length<5) return;
+    stable=stable.slice(-5);
+
+    var heard=stable.filter(function(x){ return x!==null; });
+    if(heard.length<3){
+      if(stable.every(function(x){ return x===null; }) && stable.length>=5){
+        // 持續無聲：不判定，等使用者撥弦或按跳過
+      }
+      return;
+    }
+    // 取多數值
+    var tally={}, top=null, n=0;
+    heard.forEach(function(x){ tally[x]=(tally[x]||0)+1; if(tally[x]>n){ n=tally[x]; top=x; } });
+    if(n<3) return;
+
+    if(top===expect){ results[step]="pass"; }
+    else if(Math.abs(top-expect)>24){ results[step]={ wrong:"dead" }; }
+    else { results[step]={ wrong:nameOf(top)+octOf(top) }; }
+    advance();
+    render();
+  }
+
+  $("mode").addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    mode=b.dataset.v;
+    Array.prototype.forEach.call(this.children,function(x){
+      x.setAttribute("aria-pressed", x===b ? "true":"false");
+    });
+    if(mode==="chord") resetChord();
+    render();
+  });
+
+  resetChord();
+  if(insecure()){
+    gateMsg("<b>提醒：目前是 <code>file://</code> 環境，麥克風拿不到。</b><br>"+
+      "按上面的按鈕會看到完整說明。要用麥克風功能，這包檔案需要放到 HTTPS 靜態主機。");
+  }
+})();
+</script>
+</body>
+</html>

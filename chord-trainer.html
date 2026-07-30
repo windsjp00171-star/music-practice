@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>和弦轉換練習</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html,body{ height:100%; }
+
+  body{
+    background: var(--ink);
+    color: var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- 頂列 ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px;
+    padding:14px 20px;
+    border-bottom:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  .wordmark{
+    font-size:13px; font-weight:500; letter-spacing:.14em;
+    color:var(--dim);
+  }
+  .run{
+    font-family:"Noto Sans TC", sans-serif;
+    font-size:14px; font-weight:700;
+    color:var(--ink); background:var(--paper);
+    border:none; border-radius:var(--radius);
+    padding:10px 22px; cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .run:hover{ background:#fff; }
+  .run.is-on{ background:var(--amber); color:#241703; }
+  .run:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+
+  /* ---------- 舞台 ---------- */
+  .stage{
+    flex:1 1 auto;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:clamp(20px,4vh,40px);
+    padding:32px 20px;
+    min-height:0;
+  }
+
+  /* 拍燈 */
+  .lamps{ display:flex; gap:12px; }
+  .lamp{
+    width:11px; height:11px; border-radius:50%;
+    background:var(--ink-3);
+    transition:background .09s ease, transform .09s ease;
+  }
+  .lamp.hot{ background:var(--amber); transform:scale(1.45); }
+  .lamp.hot.down{ transform:scale(1.9); }
+
+  /* 現在 / 下一個 */
+  .horizon{
+    display:flex; align-items:center; justify-content:center;
+    gap:clamp(20px,5vw,56px);
+    width:100%;
+  }
+  .slot{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .slot-label{
+    font-size:11px; letter-spacing:.2em; color:var(--dim); font-weight:500;
+  }
+  .glyph{
+    font-family:"Archivo", system-ui, sans-serif;
+    font-weight:800;
+    line-height:.86;
+    letter-spacing:-.03em;
+    white-space:nowrap;
+  }
+  .now .glyph{ font-size:clamp(76px, 21vw, 190px); }
+  .next .glyph{ font-size:clamp(30px, 7vw, 62px); color:var(--dim); }
+  .glyph sup{
+    font-size:.42em; font-weight:700;
+    vertical-align:baseline;
+    position:relative; top:-.72em; left:.04em;
+    letter-spacing:0;
+  }
+  .divider{
+    width:1px; align-self:stretch; background:var(--line);
+    margin:8px 0;
+  }
+  .answer{
+    font-family:"Archivo", sans-serif; font-weight:700;
+    font-size:clamp(15px,3.4vw,22px); color:var(--amber);
+    min-height:1.2em;
+  }
+
+  /* 小節進度 */
+  .track{
+    width:min(560px, 88vw); height:3px;
+    background:var(--ink-3); border-radius:2px; overflow:hidden;
+  }
+  .track span{
+    display:block; height:100%; width:0;
+    background:var(--paper);
+  }
+
+  /* ---------- 控制盤 ---------- */
+  .panel{
+    flex:0 0 auto;
+    border-top:1px solid var(--line);
+    background:var(--ink-2);
+    padding:18px 20px 24px;
+    display:flex; flex-direction:column; gap:18px;
+  }
+  .row{
+    display:flex; flex-wrap:wrap; align-items:center; gap:12px 22px;
+  }
+  .field{ display:flex; align-items:center; gap:10px; }
+  .field > label{
+    font-size:12px; letter-spacing:.1em; color:var(--dim); font-weight:500;
+    white-space:nowrap;
+  }
+
+  /* BPM */
+  .bpm{ display:flex; align-items:center; gap:4px; }
+  .step{
+    width:32px; height:32px; border-radius:8px;
+    background:var(--ink-3); color:var(--paper);
+    border:1px solid var(--line); cursor:pointer;
+    font-size:17px; line-height:1;
+  }
+  .step:hover{ background:var(--line); }
+  .step:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .bpm-val{
+    font-family:"Archivo", sans-serif; font-weight:700;
+    font-size:26px; min-width:64px; text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* 分段選擇 */
+  .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button{
+    background:transparent; color:var(--dim);
+    border:none; border-right:1px solid var(--line);
+    padding:8px 13px; font-size:13px; cursor:pointer;
+    font-family:"Noto Sans TC", sans-serif;
+  }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  /* 和弦池 */
+  .pool{ display:flex; flex-wrap:wrap; gap:7px; }
+  .chip{
+    font-family:"Archivo", sans-serif; font-weight:700; font-size:14px;
+    background:transparent; color:var(--dim);
+    border:1px solid var(--line); border-radius:7px;
+    padding:7px 13px; cursor:pointer; min-width:46px;
+  }
+  .chip[aria-pressed="true"]{
+    background:var(--paper); color:var(--ink); border-color:var(--paper);
+  }
+  .chip:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .note{ font-size:12px; color:var(--dim); line-height:1.7; }
+  .note b{ color:var(--paper); font-weight:500; }
+
+  /* capo 建議 */
+  .capo{ font-size:12px; color:var(--dim); line-height:1.8; }
+  .capo b{ font-family:"Archivo",sans-serif; font-weight:700; color:var(--amber); }
+  .capo .sh{ font-family:"Archivo",sans-serif; font-weight:700; color:var(--paper); }
+
+  select{
+    background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+    border-radius:8px; padding:7px 10px; font-family:"Archivo",sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer;
+  }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  .topbar .mp-back{ margin:0; }
+
+  .hidden{ display:none !important; }
+
+  @media (prefers-reduced-motion: reduce){
+    .lamp{ transition:none; }
+    .lamp.hot, .lamp.hot.down{ transform:none; }
+  }
+
+  @media (max-width:560px){
+    .horizon{ gap:16px; }
+    .divider{ display:none; }
+    .panel{ padding:16px 16px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wordmark">
+    <a class="mp-back" href="index.html">← 全部模組</a>　和弦轉換練習
+  </div>
+  <button class="run" id="run" type="button">開始</button>
+</header>
+
+<main class="stage">
+  <div class="lamps" id="lamps"></div>
+
+  <div class="horizon">
+    <div class="slot now">
+      <div class="slot-label">現在</div>
+      <div class="glyph" id="now">—</div>
+      <div class="answer" id="answer"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="slot next">
+      <div class="slot-label">下一個</div>
+      <div class="glyph" id="next">—</div>
+    </div>
+  </div>
+
+  <div class="track"><span id="track"></span></div>
+</main>
+
+<section class="panel">
+  <div class="row">
+    <div class="field">
+      <label for="bpmDown">速度</label>
+      <div class="bpm">
+        <button class="step" id="bpmDown" type="button" aria-label="降低速度">−</button>
+        <div class="bpm-val" id="bpmVal">70</div>
+        <button class="step" id="bpmUp" type="button" aria-label="提高速度">+</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>拍號</label>
+      <div class="seg" id="meter">
+        <button type="button" data-v="4" aria-pressed="true">4/4</button>
+        <button type="button" data-v="3" aria-pressed="false">3/4</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>幾小節換一次</label>
+      <div class="seg" id="span">
+        <button type="button" data-v="1" aria-pressed="false">1</button>
+        <button type="button" data-v="2" aria-pressed="true">2</button>
+        <button type="button" data-v="4" aria-pressed="false">4</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>模式</label>
+      <div class="seg" id="mode">
+        <button type="button" data-v="name" aria-pressed="true">和弦名</button>
+        <button type="button" data-v="degree" aria-pressed="false">級數</button>
+      </div>
+    </div>
+
+    <div class="field hidden" id="keyField">
+      <label for="keySel">Key</label>
+      <select id="keySel"></select>
+    </div>
+
+    <div class="field hidden" id="revealField">
+      <div class="seg" id="reveal">
+        <button type="button" data-v="on" aria-pressed="false">顯示答案</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pool" id="pool"></div>
+
+  <p class="note" id="note"></p>
+  <p class="capo hidden" id="capo"></p>
+</section>
+
+<script src="shared/theory.js"></script>
+<script src="shared/audio.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  if(!window.MP || !MP.theory || !MP.audio){
+    document.body.innerHTML = '<p style="max-width:620px;margin:48px auto;padding:0 16px;'+
+      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
+      '共用檔案載入失敗（需要 shared/theory.js 與 shared/audio.js）。'+
+      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+    return;
+  }
+
+  var NAMES   = ["A","Am","B","Bm","C","D","Dm","E","Em","F","G"];
+  var ON_INIT = ["A","D","E","Em","G"];
+
+  /* 級數 → 和弦不再硬寫對照表，改由 shared/theory.js 算，十二個 key 都對，
+     而且 F / Bb / Eb / Ab 這幾個 key 會用降記號書寫。 */
+  var DEGREES = MP.theory.DEGREES;
+
+  var S = {
+    bpm: 70,
+    beats: 4,
+    span: 2,
+    mode: "name",
+    key: "G",
+    reveal: false,
+    on: { name: new Set(ON_INIT), degree: new Set(["1","4","5","6m"]) },
+    running: false
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var el = {
+    run:$("run"), lamps:$("lamps"), now:$("now"), next:$("next"),
+    answer:$("answer"), track:$("track"), bpmVal:$("bpmVal"),
+    pool:$("pool"), note:$("note"), capo:$("capo"),
+    keyField:$("keyField"), revealField:$("revealField"), keySel:$("keySel")
+  };
+
+  /* ---------- 顯示 ---------- */
+
+  function glyph(token){
+    if(!token) return "—";
+    var m = /^([A-G][#b]?)(.*)$/.exec(token);
+    if(m) return m[1] + (m[2] ? "<sup>"+m[2]+"</sup>" : "");
+    var d = /^(\d)(.*)$/.exec(token);
+    if(d) return d[1] + (d[2] ? "<sup>"+d[2]+"</sup>" : "");
+    return token;
+  }
+
+  function pool(){ return Array.from(S.on[S.mode]); }
+
+  function pick(avoid){
+    var p = pool();
+    if(!p.length) return null;
+    if(p.length === 1) return p[0];
+    var c;
+    do { c = p[Math.floor(Math.random()*p.length)]; } while(c === avoid);
+    return c;
+  }
+
+  function answerFor(token){
+    if(S.mode !== "degree" || !token) return "";
+    return MP.theory.chordForDegree(S.key, token);
+  }
+
+  function buildLamps(){
+    el.lamps.innerHTML = "";
+    for(var i=0;i<S.beats;i++){
+      var d = document.createElement("div");
+      d.className = "lamp";
+      el.lamps.appendChild(d);
+    }
+  }
+
+  function buildPool(){
+    var list = S.mode === "name" ? NAMES : DEGREES;
+    var set  = S.on[S.mode];
+    el.pool.innerHTML = "";
+    list.forEach(function(token){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.innerHTML = glyph(token);
+      b.setAttribute("aria-pressed", set.has(token) ? "true" : "false");
+      b.addEventListener("click", function(){
+        if(set.has(token)){
+          if(set.size <= 2) return;   // 至少留兩個才有得換
+          set.delete(token);
+        } else {
+          set.add(token);
+        }
+        b.setAttribute("aria-pressed", set.has(token) ? "true" : "false");
+        writeNote();
+      });
+      el.pool.appendChild(b);
+    });
+  }
+
+  function writeNote(){
+    var n = S.on[S.mode].size;
+    var barSec = (60/S.bpm) * S.beats * S.span;
+    el.note.innerHTML = S.mode === "name"
+      ? "和弦池 <b>"+n+"</b> 個 · 每 <b>"+barSec.toFixed(1)+"</b> 秒換一次 · 空白鍵可開始／停止"
+      : "看到級數，自己換算成 <b>key of "+S.key+"</b> 的和弦再彈 · 每 <b>"+barSec.toFixed(1)+"</b> 秒換一次";
+    writeCapo();
+  }
+
+  /* 級數模式下顯示 capo 建議：這個 key 可以用哪個開放和弦指型 + 夾第幾格 */
+  function writeCapo(){
+    el.capo.classList.toggle("hidden", S.mode !== "degree");
+    if(S.mode !== "degree") return;
+
+    var chords = MP.theory.getDiatonicChords(S.key) || [];
+    var caps = MP.theory.capoSuggestions(S.key);
+
+    var line = "key of " + S.key + " 順階和弦：<span class=\"sh\">" +
+               chords.join(" · ") + "</span>";
+
+    if(!caps.length){
+      line += "<br>吉他：這個 key 沒有 capo 七格內按得順的指型，只能硬按。";
+    } else {
+      line += "<br>吉他 capo 建議：" + caps.map(function(c){
+        return c.capo === 0
+          ? "<span class=\"sh\">"+c.shape+"</span> 型不用 capo"
+          : "<span class=\"sh\">"+c.shape+"</span> 型夾第 <b>"+c.capo+"</b> 格";
+      }).join(" · ");
+    }
+    el.capo.innerHTML = line;
+  }
+
+  function paint(cur, nxt){
+    el.now.innerHTML  = glyph(cur);
+    el.next.innerHTML = glyph(nxt);
+    el.answer.textContent = (S.reveal && S.mode === "degree") ? answerFor(cur) : "";
+  }
+
+  /* ---------- 節拍引擎 ---------- */
+
+  var ctx = null, timer = null, raf = null;
+  var nextTime = 0, sBeat = 0, sBar = -1, sCur = null, sNxt = null;
+  var queue = [];
+  var view = { beat:0, base:0, at:0, spb:0.85, total:8 };
+
+  function click(t, down){
+    MP.audio.click(ctx, ctx.destination, t, down, { gainDown:0.5, gainUp:0.26 });
+  }
+
+  function schedule(){
+    var spb = 60 / S.bpm;
+    while(nextTime < ctx.currentTime + 0.1){
+      click(nextTime, sBeat === 0);
+      var barsIn = sBar < 0 ? 0 : (sBar % S.span);
+      queue.push({
+        t: nextTime,
+        beat: sBeat,
+        cur: sCur,
+        nxt: sNxt,
+        base: (barsIn * S.beats + sBeat) / (S.span * S.beats),
+        spb: spb,
+        total: S.span * S.beats,
+        warm: sBar < 0
+      });
+
+      sBeat++;
+      if(sBeat >= S.beats){
+        sBeat = 0;
+        sBar++;
+        if(sBar % S.span === 0){
+          sCur = sNxt;
+          sNxt = pick(sCur);
+        }
+      }
+      nextTime += spb;
+    }
+  }
+
+  function frame(){
+    if(!S.running) return;
+    while(queue.length && queue[0].t <= ctx.currentTime){
+      var q = queue.shift();
+      view.beat = q.beat; view.base = q.base; view.at = q.t;
+      view.spb = q.spb;  view.total = q.total;
+      paint(q.warm ? null : q.cur, q.nxt);
+      var lamps = el.lamps.children;
+      for(var i=0;i<lamps.length;i++){
+        lamps[i].className = "lamp" + (i === q.beat ? (q.beat === 0 ? " hot down" : " hot") : "");
+      }
+    }
+    var p = view.base + ((ctx.currentTime - view.at) / view.spb) / view.total;
+    el.track.style.width = (Math.max(0, Math.min(1, p)) * 100) + "%";
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start(){
+    if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if(ctx.state === "suspended") ctx.resume();
+    if(!pool().length) return;
+
+    S.running = true;
+    el.run.textContent = "停止";
+    el.run.classList.add("is-on");
+
+    sBeat = 0; sBar = -1; sCur = null; sNxt = pick(null);
+    queue.length = 0;
+    nextTime = ctx.currentTime + 0.12;
+    paint(null, sNxt);
+
+    timer = setInterval(schedule, 25);
+    raf = requestAnimationFrame(frame);
+  }
+
+  function stop(){
+    S.running = false;
+    el.run.textContent = "開始";
+    el.run.classList.remove("is-on");
+    clearInterval(timer);
+    cancelAnimationFrame(raf);
+    queue.length = 0;
+    el.track.style.width = "0";
+    paint(null, null);
+    var lamps = el.lamps.children;
+    for(var i=0;i<lamps.length;i++) lamps[i].className = "lamp";
+  }
+
+  function toggle(){ S.running ? stop() : start(); }
+
+  /* ---------- 控制 ---------- */
+
+  function segment(id, apply){
+    var box = $(id);
+    box.addEventListener("click", function(e){
+      var b = e.target.closest("button");
+      if(!b) return;
+      Array.prototype.forEach.call(box.children, function(x){
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
+      });
+      apply(b.dataset.v);
+    });
+  }
+
+  el.run.addEventListener("click", toggle);
+
+  document.addEventListener("keydown", function(e){
+    if(e.code === "Space" && e.target.tagName !== "BUTTON"){
+      e.preventDefault(); toggle();
+    }
+  });
+
+  function setBpm(v){
+    S.bpm = Math.max(40, Math.min(180, v));
+    el.bpmVal.textContent = S.bpm;
+    writeNote();
+  }
+  $("bpmUp").addEventListener("click", function(){ setBpm(S.bpm + 2); });
+  $("bpmDown").addEventListener("click", function(){ setBpm(S.bpm - 2); });
+
+  segment("meter", function(v){
+    S.beats = parseInt(v, 10);
+    buildLamps(); writeNote();
+    if(S.running){ stop(); start(); }
+  });
+
+  segment("span", function(v){
+    S.span = parseInt(v, 10);
+    writeNote();
+    if(S.running){ stop(); start(); }
+  });
+
+  segment("mode", function(v){
+    S.mode = v;
+    el.keyField.classList.toggle("hidden", v !== "degree");
+    el.revealField.classList.toggle("hidden", v !== "degree");
+    buildPool(); writeNote();
+    if(S.running){ stop(); start(); } else { paint(null, null); }
+  });
+
+  MP.theory.KEYS.forEach(function(k){
+    var o = document.createElement("option");
+    o.value = k; o.textContent = k;
+    if(k === S.key) o.selected = true;
+    el.keySel.appendChild(o);
+  });
+  el.keySel.addEventListener("change", function(){
+    S.key = el.keySel.value;
+    writeNote();
+    if(S.reveal) paint(sCur, sNxt);
+  });
+
+  $("reveal").addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b) return;
+    S.reveal = !S.reveal;
+    b.setAttribute("aria-pressed", S.reveal ? "true" : "false");
+  });
+
+  /* ---------- 啟動 ---------- */
+  buildLamps();
+  buildPool();
+  writeNote();
+  setBpm(70);
+})();
+</script>
+</body>
+</html>

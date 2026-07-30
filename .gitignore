@@ -1,0 +1,7 @@
+# 本機工具設定，不進版控
+.claude/settings.local.json
+
+# 作業系統雜物
+.DS_Store
+Thumbs.db
+desktop.ini

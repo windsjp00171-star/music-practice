@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跟著彈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background:var(--ink); color:var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:44px;
+  }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 16px; }
+
+  header{ padding:18px 0 12px; border-bottom:1px solid var(--line);
+          display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  .run{ background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+        padding:10px 22px; font-family:inherit; font-size:14px; font-weight:700;
+        cursor:pointer; }
+  .run.on{ background:var(--amber); color:#241703; }
+  .run:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+
+  .picker{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:16px 0 4px; }
+  .picker label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  select{ background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+          border-radius:8px; padding:8px 11px; font-family:inherit;
+          font-size:13.5px; cursor:pointer; }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .meta{ font-size:11.5px; color:var(--dim); line-height:1.7; margin:8px 0 14px; }
+
+  /* 拍燈 + 現在和弦 */
+  .stage{ text-align:center; padding:6px 0 10px; }
+  .lamps{ display:flex; gap:10px; justify-content:center; margin-bottom:14px; }
+  .lamp{ width:9px; height:9px; border-radius:50%; background:var(--ink-3);
+         transition:background .08s, transform .08s; }
+  .lamp.hot{ background:var(--amber); transform:scale(1.5); }
+  .lamp.hot.down{ transform:scale(1.9); }
+  .glyph{ font-family:"Archivo",sans-serif; font-weight:800;
+          font-size:clamp(54px,15vw,92px); line-height:.9; letter-spacing:-.03em; }
+  .glyph sup{ font-size:.38em; position:relative; top:-.85em; }
+  .nxt{ font-family:"Archivo",sans-serif; font-weight:700; font-size:15px;
+        color:var(--dim); margin-top:8px; }
+
+  /* 和弦譜 */
+  .chart{ display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin:16px 0 4px; }
+  .bar{
+    border:1px solid var(--line); border-radius:7px; padding:11px 4px;
+    text-align:center; font-family:"Archivo",sans-serif; font-weight:700;
+    font-size:15px; color:var(--dim); position:relative;
+  }
+  .bar.now{ border-color:var(--amber); color:var(--paper); background:rgba(233,166,60,.09); }
+  .bar.past{ color:#4E5C58; }
+  .bar .hit{ position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
+             width:5px; height:5px; border-radius:50%; }
+  .bar .hit.g{ background:var(--good); }
+  .bar .hit.b{ background:var(--bad); }
+
+  /* 回饋 */
+  .fb{ background:var(--ink-2); border:1px solid var(--line); border-radius:12px;
+       padding:15px 16px; margin-top:14px; }
+  .fbrow{ display:flex; justify-content:space-between; align-items:baseline;
+          gap:10px; margin-bottom:9px; }
+  .fbrow:last-child{ margin-bottom:0; }
+  .fblab{ font-size:12px; color:var(--dim); }
+  .fbval{ font-family:"Archivo",sans-serif; font-weight:800; font-size:17px;
+          font-variant-numeric:tabular-nums; }
+  .fbval.ok{ color:var(--good); }
+  .fbval.off{ color:var(--amber); }
+  .fbval.bad{ color:var(--bad); }
+  .fbnote{ font-size:12px; color:var(--dim); line-height:1.7; margin-top:11px;
+           padding-top:11px; border-top:1px solid var(--line); }
+
+  /* 控制 */
+  .panel{ border-top:1px solid var(--line); margin-top:18px; padding-top:16px;
+          display:flex; flex-direction:column; gap:14px; }
+  .row{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; }
+  .field{ display:flex; align-items:center; gap:9px; }
+  .field > label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  .step{ width:31px; height:31px; border-radius:8px; background:var(--ink-3);
+         color:var(--paper); border:1px solid var(--line); cursor:pointer; font-size:16px; }
+  .step:hover{ background:var(--line); }
+  .bpmv{ font-family:"Archivo",sans-serif; font-weight:700; font-size:23px;
+         min-width:58px; text-align:center; font-variant-numeric:tabular-nums; }
+  .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button{ background:transparent; color:var(--dim); border:none;
+               border-right:1px solid var(--line); padding:8px 12px; font-size:12.5px;
+               cursor:pointer; font-family:inherit; }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .err{ background:rgba(216,105,94,.1); border-left:2px solid var(--bad);
+        border-radius:0 7px 7px 0; padding:11px 13px; font-size:12.5px;
+        line-height:1.75; color:#F0D6D2; margin-top:14px; }
+  .err b{ color:var(--bad); }
+  .err code{ font-family:"Archivo",monospace; background:rgba(0,0,0,.25);
+             padding:1px 5px; border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <h1>跟著彈</h1>
+    <button class="run" id="run" type="button">開始</button>
+  </header>
+
+  <div class="picker">
+    <label for="song">曲目</label>
+    <select id="song"></select>
+  </div>
+  <p class="meta" id="meta"></p>
+
+  <div class="stage">
+    <div class="lamps" id="lamps"></div>
+    <div class="glyph" id="now">—</div>
+    <div class="nxt" id="nxt"></div>
+  </div>
+
+  <div class="chart" id="chart"></div>
+
+  <div class="fb" id="fb"></div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="field">
+        <label>速度</label>
+        <button class="step" id="bd" type="button" aria-label="降速">−</button>
+        <div class="bpmv" id="bv">72</div>
+        <button class="step" id="bu" type="button" aria-label="加速">+</button>
+      </div>
+      <div class="field">
+        <label>伴奏</label>
+        <div class="seg" id="back">
+          <button type="button" data-v="click" aria-pressed="true">只有節拍</button>
+          <button type="button" data-v="chord" aria-pressed="false">加和弦</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>聽我彈</label>
+        <div class="seg" id="micseg">
+          <button type="button" data-v="off" aria-pressed="true">關</button>
+          <button type="button" data-v="on"  aria-pressed="false">開</button>
+        </div>
+      </div>
+    </div>
+    <div id="gate"></div>
+  </div>
+
+</div>
+
+<script src="shared/pitch.js"></script>
+<script src="shared/audio.js"></script>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){ return document.getElementById(id); };
+
+  if(!window.MP || !MP.pitch || !MP.audio){
+    document.body.innerHTML = '<p style="max-width:640px;margin:48px auto;padding:0 16px;'+
+      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
+      '共用檔案載入失敗（需要 shared/pitch.js 與 shared/audio.js）。'+
+      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+    return;
+  }
+
+  /* ---------- 曲目 ---------- */
+  // 和弦骨架，非演奏編曲。聖詩皆為公有領域（1929 年前）。
+  var SONGS={
+    "prog145":  { name:"進行 1–4–5（最基本）", key:"G", beats:4,
+      bars:["G","G","C","C","D","D","G","G"],
+      note:"級數 1–4–5。學會這三個和弦就能伴很多詩歌。" },
+    "prog1564": { name:"進行 1–5–6m–4（最常用）", key:"G", beats:4,
+      bars:["G","D","Em","C","G","D","Em","C"],
+      note:"現代敬拜歌最常見的進行。四個和弦循環。" },
+    "prog6415": { name:"進行 6m–4–1–5", key:"G", beats:4,
+      bars:["Em","C","G","D","Em","C","G","D"],
+      note:"同樣四個和弦，換起點，情緒完全不同。" },
+    "grace":    { name:"奇異恩典（簡化骨架）", key:"G", beats:3,
+      bars:["G","G","C","G","G","G","D","D","G","G","C","G","G","D","G","G"],
+      note:"Amazing Grace · 公有領域。3/4 拍，三個和弦。" },
+    "friend":   { name:"何等恩友慈仁救主（簡化骨架）", key:"G", beats:4,
+      bars:["G","C","G","D","G","C","G","G","G","C","G","D","G","C","D","G"],
+      note:"What a Friend We Have in Jesus · 公有領域。" },
+    "care":     { name:"天父必看顧你（簡化骨架）", key:"G", beats:4,
+      bars:["G","G","C","G","G","D","D","G","G","G","C","G","G","D","G","G"],
+      note:"God Will Take Care of You · 公有領域。" }
+  };
+
+  var CHORD={ "G":[43,47,50,55], "C":[48,52,55,60], "D":[50,54,57,62],
+              "Em":[52,55,59,64], "Am":[45,52,57,60], "Bm":[47,54,59,62] };
+
+  var S={ song:"prog145", bpm:72, back:"click", mic:"off", running:false };
+
+  /* ---------- 音訊 ---------- */
+  var ctx=null, out=null;
+  function A(){
+    if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)();
+      out=ctx.createGain(); out.gain.value=0.55; out.connect(ctx.destination); }
+    if(ctx.state==="suspended") ctx.resume();
+    return ctx;
+  }
+  var mtof=MP.pitch.mtof, ftom=MP.pitch.ftom;
+
+  function click(t,down){
+    MP.audio.click(ctx,out,t,down,{ gainDown:0.34, gainUp:0.17 });
+  }
+
+  /* 鋼琴音色改成先算取樣緩衝再播（shared/audio.js，參數移植自 PitchPal）。
+     CHORD_GAIN 把單音壓到四個音同時響也不爆掉。 */
+  var CHORD_GAIN=0.15, CHORD_SPREAD=0.012;
+
+  /* 緩衝要快取。schedule() 只提前 0.12 秒排程，
+     如果每小節都重算三秒長的緩衝會來不及，聲音會斷。 */
+  var chordCache={};
+  function chordBuffers(name,dur){
+    var k=name+"@"+dur.toFixed(3);
+    if(!chordCache[k]){
+      chordCache[k]=CHORD[name].map(function(m){
+        return MP.audio.pianoBuffer(ctx,mtof(m),dur);
+      });
+    }
+    return chordCache[k];
+  }
+
+  function playChord(name,t,dur){
+    if(!CHORD[name]) return;
+    chordBuffers(name,dur).forEach(function(bf,i){
+      MP.audio.playBuffer(ctx,out,bf,t+i*CHORD_SPREAD,
+        { cutoff:MP.audio.LOWPASS.piano, gain:CHORD_GAIN });
+    });
+  }
+
+  /* 開始前先把這首用到的和弦算好，避免第一小節卡住 */
+  function warmChords(){
+    if(S.back!=="chord") return;
+    var sg=song(), dur=(60/S.bpm)*sg.beats*0.92, seen={};
+    sg.bars.forEach(function(n){
+      if(seen[n] || !CHORD[n]) return;
+      seen[n]=1; chordBuffers(n,dur);
+    });
+  }
+
+  /* ---------- 麥克風 ---------- */
+  var mic=null, an=null, mbuf=null;
+  var insecure=MP.pitch.isInsecure;
+
+  function micOn(){
+    A();
+    MP.pitch.requestMic({ ctx:ctx }).then(function(handle){
+      mic=handle; an=handle.analyser; mbuf=handle.buf;
+      $("gate").innerHTML="";
+    }).catch(function(e){
+      $("gate").innerHTML = e.code==="insecure"
+        ? '<div class="err"><b>這個環境拿不到麥克風。</b>'+
+          '瀏覽器只允許 <code>https://</code> 或 <code>localhost</code> 存取麥克風，'+
+          '<code>file://</code> 不行。要用「聽我彈」，這包檔案需放到 HTTPS 靜態主機。</div>'
+        : '<div class="err"><b>麥克風被拒絕。</b>'+
+          '在網址列旁的權限設定裡允許麥克風後重試。</div>';
+      setMic("off");
+    });
+  }
+  function micOff(){
+    MP.pitch.releaseMic(mic);       // ctx 是共用的，releaseMic 不會關掉它
+    mic=null; an=null; mbuf=null; $("gate").innerHTML="";
+  }
+
+  function detect(buf,sr){
+    return MP.pitch.detect(buf,sr,{ minRms:0.012 });
+  }
+
+  /* ---------- 引擎 ---------- */
+  var timer=null,raf=null;
+  var nextT=0,sBeat=0,sBar=-1,queue=[];
+  var view={beat:0,bar:0};
+  var prevRms=0,lastOnset=-1,offsets=[],hits={},notesOk=0,notesTot=0;
+
+  function song(){ return SONGS[S.song]; }
+
+  function schedule(){
+    var spb=60/S.bpm, sg=song();
+    while(nextT<ctx.currentTime+0.12){
+      click(nextT, sBeat===0);
+      if(S.back==="chord" && sBeat===0 && sBar>=0){
+        playChord(sg.bars[sBar%sg.bars.length], nextT, spb*sg.beats*0.92);
+      }
+      queue.push({t:nextT, beat:sBeat, bar:sBar, spb:spb});
+      sBeat++;
+      if(sBeat>=sg.beats){ sBeat=0; sBar++; }
+      nextT+=spb;
+    }
+  }
+
+  function loop(){
+    if(!S.running) return;
+    raf=requestAnimationFrame(loop);
+
+    while(queue.length && queue[0].t<=ctx.currentTime){
+      var q=queue.shift();
+      view=q;
+      paintBeat(q);
+    }
+    if(S.mic==="on" && an) listen();
+  }
+
+  function listen(){
+    an.getFloatTimeDomainData(mbuf);
+    var d=detect(mbuf,ctx.sampleRate);
+    var now=ctx.currentTime;
+
+    // onset：能量突升 + 100ms 保護
+    if(d.rms>0.02 && d.rms>prevRms*1.7 && now-lastOnset>0.1){
+      lastOnset=now;
+      var spb=60/S.bpm;
+      var off=((now-view.t+spb/2)%spb)-spb/2;   // 距最近拍點的秒差
+      offsets.push(off*1000);
+      if(offsets.length>16) offsets.shift();
+
+      var sg=song(), bi=Math.max(0,view.bar)%sg.bars.length;
+      if(d.freq){
+        notesTot++;
+        var pc=((Math.round(ftom(d.freq))%12)+12)%12;
+        var ok=CHORD[sg.bars[bi]].some(function(m){ return ((m%12)+12)%12===pc; });
+        if(ok) notesOk++;
+        hits[bi]=ok?"g":"b";
+      }
+      paintFeedback();
+      paintChart();
+    }
+    prevRms=prevRms*0.6+d.rms*0.4;
+  }
+
+  /* ---------- 畫面 ---------- */
+
+  function glyph(n){
+    var m=/^([A-G][#b]?)(.*)$/.exec(n);
+    return m ? m[1]+(m[2]?"<sup>"+m[2]+"</sup>":"") : n;
+  }
+
+  function buildLamps(){
+    var l=$("lamps"); l.innerHTML="";
+    for(var i=0;i<song().beats;i++){
+      var d=document.createElement("div"); d.className="lamp"; l.appendChild(d);
+    }
+  }
+
+  function paintBeat(q){
+    var lp=$("lamps").children;
+    for(var i=0;i<lp.length;i++)
+      lp[i].className="lamp"+(i===q.beat?(q.beat===0?" hot down":" hot"):"");
+    var sg=song();
+    if(q.bar<0){ $("now").textContent="準備"; $("nxt").textContent="下一個 "+sg.bars[0]; }
+    else{
+      var bi=q.bar%sg.bars.length;
+      $("now").innerHTML=glyph(sg.bars[bi]);
+      $("nxt").textContent="下一個 "+sg.bars[(bi+1)%sg.bars.length];
+    }
+    if(q.beat===0) paintChart();
+  }
+
+  function paintChart(){
+    var sg=song(), c=$("chart"); c.innerHTML="";
+    var cur = S.running && view.bar>=0 ? view.bar%sg.bars.length : -1;
+    sg.bars.forEach(function(n,i){
+      var d=document.createElement("div");
+      d.className="bar"+(i===cur?" now":(cur>=0&&i<cur?" past":""));
+      d.innerHTML=glyph(n)+(hits[i]?'<span class="hit '+hits[i]+'"></span>':"");
+      c.appendChild(d);
+    });
+  }
+
+  function paintFeedback(){
+    var f=$("fb");
+    if(S.mic!=="on"){
+      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">'+
+        '把「聽我彈」打開，可以看到你刷早了還是晚了。需要 HTTPS 環境。</p>';
+      return;
+    }
+    if(!offsets.length){
+      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">'+
+        '開始彈，這裡會顯示時間差。</p>';
+      return;
+    }
+    var avg=offsets.reduce(function(a,b){return a+b;},0)/offsets.length;
+    var spread=Math.sqrt(offsets.reduce(function(a,b){return a+(b-avg)*(b-avg);},0)/offsets.length);
+    var acls = Math.abs(avg)<25?"ok":(Math.abs(avg)<60?"off":"bad");
+    var scls = spread<30?"ok":(spread<60?"off":"bad");
+    var acc = notesTot? Math.round(notesOk/notesTot*100) : null;
+
+    f.innerHTML=
+      '<div class="fbrow"><span class="fblab">平均時間差</span>'+
+      '<span class="fbval '+acls+'">'+(avg>0?"+":"")+Math.round(avg)+' ms</span></div>'+
+      '<div class="fbrow"><span class="fblab">穩定度（越小越穩）</span>'+
+      '<span class="fbval '+scls+'">±'+Math.round(spread)+' ms</span></div>'+
+      (acc!==null?'<div class="fbrow"><span class="fblab">音落在和弦內</span>'+
+      '<span class="fbval '+(acc>75?"ok":acc>50?"off":"bad")+'">'+acc+'%</span></div>':"")+
+      '<p class="fbnote">'+
+      (Math.abs(avg)<25 ? "時間差很小，這樣就對了。"
+        : avg>0 ? "你平均慢了。多半是換和弦來不及——把速度降下來，先求準。"
+                : "你平均快了。刷弦搶在拍子前面，跟著節拍等一下。")+
+      '<br>「音落在和弦內」只是粗略檢查，不代表和弦乾淨。要驗乾不乾淨用逐弦檢查。</p>';
+  }
+
+  /* ---------- 控制 ---------- */
+
+  function start(){
+    A();
+    warmChords();
+    S.running=true;
+    $("run").textContent="停止"; $("run").classList.add("on");
+    sBeat=0; sBar=-1; queue.length=0; nextT=ctx.currentTime+0.15;
+    offsets=[]; hits={}; notesOk=0; notesTot=0; prevRms=0; lastOnset=-1;
+    view={t:nextT,beat:0,bar:-1,spb:60/S.bpm};
+    timer=setInterval(schedule,25);
+    raf=requestAnimationFrame(loop);
+    paintFeedback();
+  }
+  function stop(){
+    S.running=false;
+    $("run").textContent="開始"; $("run").classList.remove("on");
+    clearInterval(timer); cancelAnimationFrame(raf); queue.length=0;
+    $("now").textContent="—"; $("nxt").textContent="";
+    var lp=$("lamps").children;
+    for(var i=0;i<lp.length;i++) lp[i].className="lamp";
+    paintChart();
+  }
+  function restart(){ if(S.running){ stop(); start(); } }
+
+  $("run").addEventListener("click",function(){ S.running?stop():start(); });
+  document.addEventListener("keydown",function(e){
+    if(e.code==="Space" && e.target.tagName!=="BUTTON" && e.target.tagName!=="SELECT"){
+      e.preventDefault(); S.running?stop():start();
+    }
+  });
+
+  function seg(id,fn){
+    $(id).addEventListener("click",function(e){
+      var b=e.target.closest("button"); if(!b) return;
+      Array.prototype.forEach.call(this.children,function(x){
+        x.setAttribute("aria-pressed",x===b?"true":"false");
+      });
+      fn(b.dataset.v);
+    });
+  }
+  seg("back",function(v){ S.back=v; });
+  function setMic(v){
+    S.mic=v;
+    Array.prototype.forEach.call($("micseg").children,function(x){
+      x.setAttribute("aria-pressed",x.dataset.v===v?"true":"false");
+    });
+    paintFeedback();
+  }
+  seg("micseg",function(v){
+    S.mic=v;
+    if(v==="on") micOn(); else micOff();
+    paintFeedback();
+  });
+
+  $("bu").addEventListener("click",function(){ S.bpm=Math.min(160,S.bpm+2); $("bv").textContent=S.bpm; });
+  $("bd").addEventListener("click",function(){ S.bpm=Math.max(40,S.bpm-2); $("bv").textContent=S.bpm; });
+
+  var sel=$("song");
+  Object.keys(SONGS).forEach(function(k){
+    var o=document.createElement("option"); o.value=k; o.textContent=SONGS[k].name;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change",function(){
+    S.song=sel.value; hits={}; buildLamps(); paintMeta(); paintChart(); restart();
+  });
+
+  function paintMeta(){
+    var sg=song();
+    $("meta").textContent="Key of "+sg.key+"　"+sg.beats+"/4　"+
+      sg.bars.length+" 小節　·　"+sg.note;
+  }
+
+  buildLamps(); paintMeta(); paintChart(); paintFeedback();
+  if(insecure()){
+    $("gate").innerHTML='<div class="err">目前是 <code>file://</code> 環境，'+
+      '「聽我彈」不能用。節拍與伴奏可以正常使用。</div>';
+  }
+})();
+</script>
+</body>
+</html>

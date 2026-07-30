@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>零階 · 認識樂器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background:var(--ink); color:var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:48px;
+  }
+  .wrap{ max-width:620px; margin:0 auto; padding:0 16px; }
+
+  header{ padding:20px 0 16px; border-bottom:1px solid var(--line); }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  header p{ font-size:12px; color:var(--dim); margin-top:5px; line-height:1.6; }
+
+  .seg{ display:flex; border:1px solid var(--line); border-radius:9px;
+        overflow:hidden; margin:18px 0 20px; }
+  .seg button{
+    flex:1; background:transparent; color:var(--dim); border:none;
+    border-right:1px solid var(--line); padding:11px 8px; cursor:pointer;
+    font-family:inherit; font-size:14px;
+  }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .step{
+    background:var(--ink-2); border:1px solid var(--line);
+    border-radius:12px; padding:18px 16px; margin-bottom:12px;
+  }
+  .step-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+  .num{ font-family:"Archivo",sans-serif; font-weight:800; font-size:12px;
+        letter-spacing:.12em; color:var(--amber); }
+  h2{ font-size:15.5px; font-weight:700; }
+  .body{ font-size:13.5px; color:#C8CFCB; line-height:1.85; }
+  .body b{ color:var(--paper); font-weight:500; }
+  .body em{ font-style:normal; color:var(--amber); }
+  .fig{ margin:14px 0 4px; display:flex; justify-content:center; }
+  .cap{ font-size:11.5px; color:var(--dim); text-align:center; margin-top:8px; line-height:1.6; }
+  svg{ display:block; max-width:100%; height:auto; }
+
+  .warn{
+    margin-top:12px; padding:11px 13px;
+    background:rgba(233,166,60,.09); border-left:2px solid var(--amber);
+    border-radius:0 7px 7px 0;
+    font-size:13px; line-height:1.75; color:#E6DFCF;
+  }
+  .warn b{ color:var(--amber); font-weight:700; }
+
+  .toggle{
+    background:transparent; color:var(--dim); border:1px solid var(--line);
+    border-radius:7px; padding:7px 13px; font-family:inherit; font-size:12.5px;
+    cursor:pointer; margin-top:12px;
+  }
+  .toggle[aria-pressed="true"]{ background:var(--paper); color:var(--ink);
+                                border-color:var(--paper); font-weight:700; }
+  .toggle:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .readout{
+    font-family:"Archivo",sans-serif; font-weight:800; font-size:26px;
+    text-align:center; margin-top:10px; min-height:34px; color:var(--amber);
+  }
+  ul{ margin:8px 0 0 18px; }
+  li{ font-size:13.5px; line-height:1.85; color:#C8CFCB; margin-bottom:2px; }
+  li b{ color:var(--paper); font-weight:500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <h1>零階 · 認識樂器</h1>
+    <p>還沒按任何和弦之前要先知道的事。全部是名詞跟規則，沒有需要練的東西。</p>
+  </header>
+
+  <div class="seg" id="inst">
+    <button type="button" data-v="guitar" aria-pressed="true">木吉他</button>
+    <button type="button" data-v="piano"  aria-pressed="false">鋼琴</button>
+  </div>
+
+  <div id="board"></div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var $ = function(id){ return document.getElementById(id); };
+
+  function mk(tag, a){
+    var e = document.createElementNS(SVGNS, tag);
+    for(var k in a) e.setAttribute(k, a[k]);
+    return e;
+  }
+  function txt(x, y, s, o){
+    o = o || {};
+    var t = mk("text", {
+      x:x, y:y, "text-anchor": o.anchor || "middle",
+      "font-family": o.mono ? "Archivo, sans-serif" : "'Noto Sans TC', sans-serif",
+      "font-size": o.size || 12,
+      "font-weight": o.weight || 500,
+      fill: o.fill || "var(--paper)"
+    });
+    t.textContent = s;
+    return t;
+  }
+
+  /* ================= 吉他 ================= */
+
+  var STRINGS = [
+    { no:6, name:"E", note:"低音 E", tip:"最粗" },
+    { no:5, name:"A", note:"A",      tip:"" },
+    { no:4, name:"D", note:"D",      tip:"" },
+    { no:3, name:"G", note:"G",      tip:"" },
+    { no:2, name:"B", note:"B",      tip:"" },
+    { no:1, name:"E", name2:"e", note:"高音 E", tip:"最細" }
+  ];
+
+  var hideStrings = false;
+
+  function stringChart(){
+    var W=300, H=176, X0=34, SP=(W-X0-30)/5, Y0=34, Y1=140;
+    var svg = mk("svg",{ viewBox:"0 0 "+W+" "+H, width:W });
+
+    svg.appendChild(mk("rect",{ x:X0-14, y:Y0-4, width:SP*5+28, height:6,
+      fill:"var(--paper)", rx:1.5 }));
+
+    STRINGS.forEach(function(s, i){
+      var x = X0+SP*i;
+      svg.appendChild(mk("line",{ x1:x, y1:Y0, x2:x, y2:Y1,
+        stroke:"var(--line)", "stroke-width": 3.2 - i*0.42 }));
+      svg.appendChild(txt(x, Y0-14, "第"+s.no+"弦", { size:10.5, fill:"var(--dim)" }));
+      svg.appendChild(txt(x, Y1+22, hideStrings ? "?" : (s.name2 || s.name),
+        { size:17, weight:800, mono:true, fill: hideStrings ? "var(--dim)" : "var(--amber)" }));
+      if(s.tip) svg.appendChild(txt(x, Y1+38, s.tip, { size:10, fill:"var(--dim)" }));
+    });
+
+    svg.appendChild(txt(X0-24, Y1/2+14, "粗", { size:11, fill:"var(--dim)" }));
+    svg.appendChild(txt(X0+SP*5+22, Y1/2+14, "細", { size:11, fill:"var(--dim)" }));
+    return svg;
+  }
+
+  function fretChart(){
+    var W=300, H=150, X0=30, SP=48, Y0=26, YB=112;
+    var svg = mk("svg",{ viewBox:"0 0 "+W+" "+H, width:W });
+
+    svg.appendChild(mk("rect",{ x:X0-3, y:Y0, width:7, height:YB-Y0, fill:"var(--paper)" }));
+    svg.appendChild(txt(X0, Y0-11, "上弦枕", { size:10, fill:"var(--dim)" }));
+
+    for(var f=1; f<=5; f++){
+      var x = X0+SP*f;
+      if(f < 5){
+        svg.appendChild(mk("line",{ x1:x, y1:Y0, x2:x, y2:YB,
+          stroke:"var(--line)", "stroke-width":2 }));
+      }
+      if(f <= 4){
+        svg.appendChild(txt(X0+SP*(f-0.5), YB+22, "第"+f+"格",
+          { size:11.5, weight:700, fill:"var(--amber)" }));
+      }
+    }
+    for(var s=0; s<6; s++){
+      var y = Y0 + 6 + s*((YB-Y0-12)/5);
+      svg.appendChild(mk("line",{ x1:X0, y1:y, x2:X0+SP*4.6, y2:y,
+        stroke:"var(--line)", "stroke-width":1 }));
+    }
+    svg.appendChild(txt(X0-16, (Y0+YB)/2, "琴頭", { size:10, fill:"var(--dim)", anchor:"end" }));
+    return svg;
+  }
+
+  function handChart(labels, thumbLabel){
+    var W=250, H=150;
+    var svg = mk("svg",{ viewBox:"0 0 "+W+" "+H, width:W });
+    var xs = [58, 96, 132, 168, 202];
+    var hs = [56, 74, 84, 72, 54];
+    labels.forEach(function(l, i){
+      var x = xs[i], top = 106 - hs[i];
+      svg.appendChild(mk("rect",{ x:x-13, y:top, width:26, height:hs[i], rx:13,
+        fill:"var(--ink-3)", stroke:"var(--line)" }));
+      svg.appendChild(txt(x, top+22, l, { size:14, weight:800, mono:true, fill:"var(--amber)" }));
+    });
+    svg.appendChild(mk("rect",{ x:12, y:78, width:24, height:48, rx:12,
+      fill:"var(--ink-3)", stroke:"var(--line)", transform:"rotate(-22 24 102)" }));
+    svg.appendChild(txt(22, 104, thumbLabel, { size:13, weight:800, mono:true,
+      fill: thumbLabel === "—" ? "var(--dim)" : "var(--amber)" }));
+    svg.appendChild(mk("rect",{ x:44, y:104, width:174, height:34, rx:12,
+      fill:"var(--ink-3)", stroke:"var(--line)" }));
+    return svg;
+  }
+
+  var GUITAR = [
+    { h:"六條弦叫什麼",
+      body:"從<b>最粗</b>的那條算起是<b>第六弦</b>，最細的是<b>第一弦</b>。<em>編號跟粗細相反，這是最容易搞混的一點。</em><br>音名由粗到細：E A D G B E。第六弦跟第一弦都叫 E，差八度。",
+      fig:stringChart, refig:true,
+      cap:"記不起來沒關係，調音器會直接告訴你。彈久了自然會記得。",
+      test:"隱藏音名，自己考自己" },
+
+    { h:"格子怎麼數",
+      body:"金屬條把琴頸切成一格一格，那些格子叫<b>品格</b>。<b>最靠近琴頭的那一格是第一格</b>，往琴身方向遞增。<br>指法圖上寫「2」就是指第二格。",
+      fig:fretChart },
+
+    { h:"手指編號",
+      body:"左手四根手指有編號，<b>拇指不編號</b>——拇指是撐在琴頸背面的，不按弦。",
+      fig:function(){ return handChart(["1","2","3","4"], "—"); },
+      cap:"1 食指 · 2 中指 · 3 無名指 · 4 小指",
+      warn:"<b>注意：</b>鋼琴的編號不一樣，鋼琴的 1 是拇指。你同時學兩樣，這裡一定會混一陣子。" },
+
+    { h:"指法圖怎麼看",
+      body:"把吉他<b>立起來、正面對著你</b>，看到的就是指法圖。<br>• <b>直線 = 弦</b>，最左邊是第六弦（最粗）<br>• <b>橫線 = 品格</b>，最上面那條粗的是上弦枕<br>• <b>圓點</b>裡的數字是用哪根手指<br>• <b>○</b> 空弦，這條弦要彈但不按<br>• <b>✕</b> 這條弦不要彈到" },
+
+    { h:"調音",
+      body:"每次拿起來都要先調。手機裝一個免費調音器（GuitarTuna 之類），對著彈就好。<br>六條弦的目標音由粗到細：<b>E A D G B E</b>。",
+      warn:"<b>音不準的話，練再久都是白練。</b>初學最常見的挫折來源不是手笨，是琴根本沒調準，怎麼按都不好聽。" },
+
+    { h:"怎麼拿",
+      body:"坐著練，幾個檢查點：",
+      list:["琴身放<b>右大腿</b>上，琴頸稍微往上抬一點",
+            "左手<b>拇指壓在琴頸背面中間</b>，不要整隻手掌握上去",
+            "手指<b>立起來</b>用指尖按，指甲要剪短",
+            "按在<b>靠近金屬條的位置</b>，不是格子正中間"],
+      warn:"姿勢是這份清單裡唯一<b>文字幫不上忙</b>的部分。找一面鏡子，或錄一段自己彈的影片回看。" }
+  ];
+
+  /* ================= 鋼琴 ================= */
+
+  var WHITE = ["C","D","E","F","G","A","B"];
+  var hideKeys = false;
+  var lastKey = "";
+
+  function pianoBoard(opts){
+    opts = opts || {};
+    var WW=32, WH=124, BW=19, BH=78, N=14;
+    var W = WW*N, H = WH+6;
+    var svg = mk("svg",{ viewBox:"0 0 "+W+" "+H, width:W });
+    var BLACKAFTER = [0,1,3,4,5];
+
+    for(var i=0;i<N;i++){
+      var name = WHITE[i%7];
+      var isC = name === "C";
+      var hi = opts.markC && isC;
+      var r = mk("rect",{ x:i*WW, y:0, width:WW-2, height:WH, rx:3,
+        fill: hi ? "var(--amber)" : "var(--paper)" });
+      if(opts.tappable){ r.style.cursor = "pointer"; r.dataset.name = name; }
+      svg.appendChild(r);
+      if(!opts.hideNames){
+        svg.appendChild(txt(i*WW+(WW-2)/2, WH-13, name,
+          { size:13, weight:800, mono:true, fill: hi ? "#241703" : "var(--ink)" }));
+      }
+    }
+    for(var o=0;o<2;o++){
+      BLACKAFTER.forEach(function(w){
+        var idx = o*7+w;
+        svg.appendChild(mk("rect",{ x: idx*WW + WW - BW/2, y:0,
+          width:BW, height:BH, rx:2.5, fill:"var(--ink)" }));
+      });
+    }
+    if(opts.groups){
+      [0,1].forEach(function(o){
+        var g2x = o*7*WW + WW - BW/2;
+        svg.appendChild(mk("rect",{ x:g2x-4, y:-3, width:WW+BW+8, height:BH+7,
+          rx:5, fill:"none", stroke:"var(--amber)", "stroke-width":1.6 }));
+        var g3x = (o*7+3)*WW + WW - BW/2;
+        svg.appendChild(mk("rect",{ x:g3x-4, y:-3, width:WW*2+BW+8, height:BH+7,
+          rx:5, fill:"none", stroke:"var(--dim)", "stroke-width":1.6,
+          "stroke-dasharray":"4 3" }));
+      });
+    }
+    return svg;
+  }
+
+  var PIANO = [
+    { h:"黑鍵是唯一的地標",
+      body:"整片鍵盤看起來都一樣，但黑鍵有規律：<b>兩個一組</b>、<b>三個一組</b>，不斷重複。<br>找音全靠這個，沒有別的辦法。",
+      fig:function(){ return pianoBoard({ groups:true, hideNames:true }); },
+      cap:"實線框 = 兩個一組　虛線框 = 三個一組" },
+
+    { h:"C 在哪裡",
+      body:"<b>兩個一組的黑鍵，左邊緊鄰的那個白鍵就是 C。</b><br>整台琴上每一個 C 都用這個方法找，沒有例外。",
+      fig:function(){ return pianoBoard({ markC:true }); },
+      warn:"<b>順帶記一個：</b>三個一組的黑鍵，左邊緊鄰的白鍵是 F。有這兩個錨點就夠用了。" },
+
+    { h:"白鍵音名",
+      body:"從 C 開始往右：<b>C D E F G A B</b>，然後回到 C，一直循環。只有七個字母。",
+      fig:function(){ return pianoBoard({ tappable:true, hideNames:hideKeys }); },
+      refig:true,
+      cap:"點鍵盤看音名",
+      test:"隱藏音名，自己考自己",
+      readout:true },
+
+    { h:"手指編號",
+      body:"兩隻手都一樣，<b>拇指是 1</b>，往小指數到 5。",
+      fig:function(){ return handChart(["2","3","4","5"], "1"); },
+      cap:"1 拇指 · 2 食指 · 3 中指 · 4 無名指 · 5 小指",
+      warn:"<b>跟吉他不一樣。</b>吉他的 1 是食指、拇指不編號；鋼琴的 1 是拇指。看指法時先確認自己在看哪一種。" },
+
+    { h:"坐姿與手型",
+      body:"",
+      list:["坐<b>椅子前半部</b>，不要靠背",
+            "手肘大約跟<b>琴鍵同高</b>，太低會用手腕出力",
+            "手掌像<b>輕輕握著一顆蛋</b>，掌心是空的",
+            "用<b>指尖</b>碰鍵，手指不要塌下去"],
+      warn:"平台鋼琴的椅子通常可以轉高度。第一次去先把椅子調對，這比練什麼都重要。" }
+  ];
+
+  /* ================= 繪製 ================= */
+
+  var inst = "guitar";
+
+  function render(){
+    var steps = inst === "guitar" ? GUITAR : PIANO;
+    var board = $("board");
+    board.innerHTML = "";
+
+    steps.forEach(function(s, i){
+      var card = document.createElement("div");
+      card.className = "step";
+
+      var head = document.createElement("div");
+      head.className = "step-head";
+      head.innerHTML = '<span class="num">'+String(i+1).padStart(2,"0")+'</span><h2>'+s.h+'</h2>';
+      card.appendChild(head);
+
+      if(s.body){
+        var p = document.createElement("p");
+        p.className = "body";
+        p.innerHTML = s.body;
+        card.appendChild(p);
+      }
+
+      if(s.list){
+        var ul = document.createElement("ul");
+        s.list.forEach(function(li){
+          var l = document.createElement("li");
+          l.innerHTML = li;
+          ul.appendChild(l);
+        });
+        card.appendChild(ul);
+      }
+
+      if(s.fig){
+        var fig = document.createElement("div");
+        fig.className = "fig";
+        fig.appendChild(s.fig());
+        card.appendChild(fig);
+
+        if(s.readout){
+          var ro = document.createElement("div");
+          ro.className = "readout";
+          ro.textContent = lastKey;
+          card.appendChild(ro);
+          fig.addEventListener("click", function(e){
+            var n = e.target.dataset && e.target.dataset.name;
+            if(!n) return;
+            lastKey = n; ro.textContent = n;
+          });
+        }
+      }
+
+      if(s.cap){
+        var c = document.createElement("p");
+        c.className = "cap";
+        c.innerHTML = s.cap;
+        card.appendChild(c);
+      }
+
+      if(s.test){
+        var t = document.createElement("button");
+        t.type = "button"; t.className = "toggle";
+        var on = inst === "guitar" ? hideStrings : hideKeys;
+        t.textContent = s.test;
+        t.setAttribute("aria-pressed", on ? "true":"false");
+        t.addEventListener("click", function(){
+          if(inst === "guitar") hideStrings = !hideStrings;
+          else hideKeys = !hideKeys;
+          render();
+        });
+        card.appendChild(t);
+      }
+
+      if(s.warn){
+        var w = document.createElement("div");
+        w.className = "warn";
+        w.innerHTML = s.warn;
+        card.appendChild(w);
+      }
+
+      board.appendChild(card);
+    });
+  }
+
+  $("inst").addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b) return;
+    inst = b.dataset.v;
+    Array.prototype.forEach.call(this.children, function(x){
+      x.setAttribute("aria-pressed", x === b ? "true":"false");
+    });
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

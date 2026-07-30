@@ -1,0 +1,30 @@
+/* 設計 token · 全部模組共用
+   改這裡會同時影響七個模組。
+   注意：每個 HTML 的 <head> 都有一份 inline fallback，
+   如果這個檔案載入失敗（例如被搬動），頁面仍然看得懂。
+   兩邊的值要一起改。 */
+
+:root{
+  --ink:    #121A18;
+  --ink-2:  #1A2523;
+  --ink-3:  #243230;
+  --line:   #2E3E3A;
+  --paper:  #F2EFE6;
+  --dim:    #7E8C87;
+  --amber:  #E9A63C;
+  --good:   #5FBF8F;
+  --bad:    #D8695E;
+  --radius: 10px;
+}
+
+/* 每個模組頁左上角的返回連結 */
+.mp-back{
+  display:inline-block;
+  margin:14px 0 0;
+  font-size:12px;
+  color:var(--dim);
+  text-decoration:none;
+  letter-spacing:.04em;
+}
+.mp-back:hover{ color:var(--paper); }
+.mp-back:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }

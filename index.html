@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>樂器練習</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background:var(--ink); color:var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:48px;
+  }
+  .wrap{ max-width:620px; margin:0 auto; padding:0 16px; }
+
+  header{ padding:26px 0 16px; border-bottom:1px solid var(--line); }
+  h1{ font-size:16px; font-weight:700; letter-spacing:.08em; }
+  header p{ font-size:12.5px; color:var(--dim); margin-top:8px; line-height:1.75; }
+
+  .grouplabel{
+    font-size:10.5px; color:var(--dim); letter-spacing:.16em;
+    margin:22px 0 9px;
+  }
+
+  a.mod{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--ink-2); border:1px solid var(--line);
+    border-radius:12px; padding:15px 16px; margin-bottom:9px;
+  }
+  a.mod:hover{ border-color:var(--dim); }
+  a.mod:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .modtop{ display:flex; align-items:baseline; gap:10px; }
+  .modname{ font-size:14.5px; font-weight:700; }
+  .badge{
+    font-size:10px; letter-spacing:.1em; color:var(--amber);
+    border:1px solid var(--amber); border-radius:20px; padding:2px 8px;
+    flex:0 0 auto;
+  }
+  .modwhat{ font-size:12.5px; color:#C8CFCB; line-height:1.75; margin-top:6px; }
+
+  .tools{
+    background:var(--ink-2); border:1px solid var(--line);
+    border-radius:12px; padding:16px; margin-top:9px;
+  }
+  .tools h2{ font-size:14px; font-weight:700; margin-bottom:7px; }
+  .tools p{ font-size:12.5px; color:var(--dim); line-height:1.75; }
+  .ghost{
+    background:transparent; color:var(--dim); border:1px solid var(--line);
+    border-radius:8px; padding:9px 15px; font-family:inherit; font-size:12.5px;
+    cursor:pointer; margin-top:12px;
+  }
+  .ghost:hover{ color:var(--paper); border-color:var(--dim); }
+  .ghost:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .status{ font-size:11.5px; color:var(--dim); margin-left:10px; }
+
+  .foot{
+    font-size:11.5px; color:var(--dim); line-height:1.85;
+    margin-top:26px; padding-top:16px; border-top:1px solid var(--line);
+  }
+  .foot code{
+    font-family:"Archivo",monospace; background:var(--ink-3);
+    padding:1px 5px; border-radius:3px; font-size:11px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>樂器練習</h1>
+    <p>木吉他與鋼琴。這裡只做四件事：知道按哪裡、聽到該有的聲音、看手怎麼動、確認彈得準不準。<br>
+       課程內容不自建，用 JustinGuitar 的免費課程。</p>
+  </header>
+
+  <div class="grouplabel">先看這個</div>
+
+  <a class="mod" href="zero.html">
+    <div class="modtop"><span class="modname">零階 · 認識樂器</span></div>
+    <p class="modwhat">弦名、格數、手指編號、鍵盤地標、指法圖怎麼看。全部是名詞跟規則，沒有要練的東西。</p>
+  </a>
+
+  <div class="grouplabel">按哪裡</div>
+
+  <a class="mod" href="fingering.html">
+    <div class="modtop"><span class="modname">指法圖</span></div>
+    <p class="modwhat">吉他十個和弦指型，鋼琴三和弦的三種轉位。每個和弦可以寫自己的註記。</p>
+  </a>
+
+  <a class="mod" href="demo.html">
+    <div class="modtop"><span class="modname">示範 · 聲音與動作</span></div>
+    <p class="modwhat">換和弦時哪根手指不用動（支點手指）、三和弦聽起來該是什麼樣、延音踏板三種踩法的差別。</p>
+  </a>
+
+  <div class="grouplabel">練</div>
+
+  <a class="mod" href="chord-trainer.html">
+    <div class="modtop"><span class="modname">和弦轉換練習</span></div>
+    <p class="modwhat">節拍器加隨機和弦提示。級數模式會一起顯示那個 key 的順階和弦與 capo 建議。</p>
+  </a>
+
+  <a class="mod" href="playalong.html">
+    <div class="modtop"><span class="modname">跟著彈</span><span class="badge">麥克風選用</span></div>
+    <p class="modwhat">六首曲目的和弦骨架，附伴奏。開麥克風可以看到自己刷早了還是晚了。</p>
+  </a>
+
+  <div class="grouplabel">確認彈得準不準</div>
+
+  <a class="mod" href="listen.html">
+    <div class="modtop"><span class="modname">聽我彈</span><span class="badge">需要麥克風</span></div>
+    <p class="modwhat">調音器、逐弦檢查、認音。只判斷單音——單音準得住，整個和弦一次刷下去的辨識不可靠。</p>
+  </a>
+
+  <a class="mod" href="progress.html">
+    <div class="modtop"><span class="modname">練習進度</span></div>
+    <p class="modwhat">吉他與鋼琴各八關，用「關」不用「週」。沒有連續天數、沒有排行、沒有分數。</p>
+  </a>
+
+  <div class="grouplabel">帶走</div>
+
+  <div class="tools">
+    <h2>離線閱讀用的匯出</h2>
+    <p>把關卡進度、卡點紀錄、指法圖註記匯出成一份 markdown。
+       這是唯一能把資料帶離瀏覽器的方式，換裝置或想留紀錄的時候用。</p>
+    <button class="ghost" id="export" type="button">匯出 markdown</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <p class="foot">
+    「聽我彈」需要麥克風，瀏覽器只在 <code>https://</code> 或 <code>localhost</code> 給麥克風權限，
+    直接雙擊開啟的 <code>file://</code> 檔案拿不到——這是硬性安全規則，不是設定問題。
+    其他五個模組在 <code>file://</code> 下都能正常跑。<br>
+    曲庫只收 1929 年前的公有領域聖詩。
+  </p>
+
+</div>
+
+<script src="shared/store.js"></script>
+<script src="shared/stages.js"></script>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){ return document.getElementById(id); };
+
+  if(!window.MP || !MP.store || !MP.stages){
+    $("export").disabled=true;
+    $("status").textContent="共用檔案未載入，匯出功能停用";
+    return;
+  }
+
+  $("export").addEventListener("click",function(){
+    $("status").textContent="正在整理…";
+    MP.store.exportMarkdown({ stages:MP.stages }).then(function(md){
+      MP.store.download("練習紀錄-"+MP.store.today()+".md", md);
+      $("status").textContent="已匯出";
+    }).catch(function(){
+      $("status").textContent="匯出失敗";
+    });
+  });
+
+  if(!MP.store.available()){
+    $("status").textContent="此環境沒有 window.storage，匯出的內容會是空的";
+  }
+})();
+</script>
+</body>
+</html>
