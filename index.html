@@ -37,6 +37,19 @@
     margin:22px 0 9px;
   }
 
+  .pick{ margin-top:18px; }
+  .picklabel{ font-size:10.5px; color:var(--dim); letter-spacing:.16em; margin-bottom:9px; }
+  .seg{ display:flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+  .seg button{
+    flex:1; background:transparent; color:var(--dim); border:none;
+    border-right:1px solid var(--line); padding:11px 8px; cursor:pointer;
+    font-family:inherit; font-size:14px;
+  }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+  .pickhint{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-top:8px; }
+
   a.mod{
     display:block; text-decoration:none; color:inherit;
     background:var(--ink-2); border:1px solid var(--line);
@@ -86,6 +99,15 @@
     <p>木吉他與鋼琴。這裡只做四件事：知道按哪裡、聽到該有的聲音、看手怎麼動、確認彈得準不準。<br>
        課程內容不自建，用 JustinGuitar 的免費課程。</p>
   </header>
+
+  <div class="pick">
+    <div class="picklabel">今天練什麼</div>
+    <div class="seg" id="inst">
+      <button type="button" data-v="guitar" aria-pressed="true">木吉他</button>
+      <button type="button" data-v="piano"  aria-pressed="false">鋼琴</button>
+    </div>
+    <p class="pickhint" id="pickhint"></p>
+  </div>
 
   <div class="grouplabel">先看這個</div>
 
@@ -155,6 +177,40 @@
 (function(){
   "use strict";
   var $=function(id){ return document.getElementById(id); };
+
+  /* ---------- 今天練什麼 ----------
+     只是把樂器選擇寫進模組連結（?inst=piano）。四個有樂器之分的模組會拿它
+     當預設值，其餘三個忽略但會原樣帶回來，所以來回切換不會被重設。
+     用 URL 參數而不是儲存，是因為 file:// 下沒有可用的儲存。 */
+
+  var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";
+  var mods = [].slice.call(document.querySelectorAll("a.mod"));
+  var bases = mods.map(function(a){ return a.getAttribute("href"); });
+
+  var HINT = {
+    guitar:"下面的模組會以木吉他為預設。進去之後還是可以隨時切換。",
+    piano: "下面的模組會以鋼琴為預設。進去之後還是可以隨時切換。"
+  };
+
+  function applyInst(){
+    var q = inst === "piano" ? "?inst=piano" : "";
+    mods.forEach(function(a, i){ a.setAttribute("href", bases[i] + q); });
+    Array.prototype.forEach.call($("inst").children, function(x){
+      x.setAttribute("aria-pressed", x.dataset.v === inst ? "true" : "false");
+    });
+    $("pickhint").textContent = HINT[inst];
+  }
+
+  $("inst").addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b) return;
+    inst = b.dataset.v;
+    applyInst();
+  });
+
+  applyInst();
+
+  /* ---------- 匯出 ---------- */
 
   if(!window.MP || !MP.store || !MP.stages){
     $("export").disabled=true;

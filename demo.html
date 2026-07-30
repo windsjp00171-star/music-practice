@@ -437,19 +437,28 @@
 
   /* ================= 切換 ================= */
 
-  var inst="guitar";
+  /* 預設樂器由 index.html 的「今天練什麼」透過 ?inst= 帶進來 */
+  var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";
+
   function render(){ inst==="guitar" ? guitarPanel() : pianoPanel(); }
+
+  function syncInst(){
+    Array.prototype.forEach.call($("inst").children,function(x){
+      x.setAttribute("aria-pressed", x.dataset.v===inst ? "true":"false");
+    });
+    var back=document.querySelector(".mp-back");
+    if(back) back.href="index.html"+(inst==="piano" ? "?inst=piano" : "");
+  }
 
   $("inst").addEventListener("click",function(e){
     var bt=e.target.closest("button"); if(!bt) return;
     cancelAnimationFrame(gRaf); cancelAnimationFrame(pRaf);
     inst=bt.dataset.v;
-    Array.prototype.forEach.call(this.children,function(x){
-      x.setAttribute("aria-pressed",x===bt?"true":"false");
-    });
+    syncInst();
     render();
   });
 
+  syncInst();
   render();
 })();
 </script>

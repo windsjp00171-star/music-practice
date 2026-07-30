@@ -472,6 +472,12 @@
     render();
   });
 
+  /* 這個模組不分樂器，但要把 index.html 的選擇原樣帶回去，返回後才不會被重設 */
+  (function(){
+    var back=document.querySelector(".mp-back");
+    if(back) back.href="index.html"+location.search;
+  })();
+
   resetChord();
   if(insecure()){
     gateMsg("<b>提醒：目前是 <code>file://</code> 環境，麥克風拿不到。</b><br>"+

@@ -151,8 +151,9 @@
       <div class="field">
         <label>伴奏</label>
         <div class="seg" id="back">
-          <button type="button" data-v="click" aria-pressed="true">只有節拍</button>
-          <button type="button" data-v="chord" aria-pressed="false">加和弦</button>
+          <button type="button" data-v="click"  aria-pressed="true">只有節拍</button>
+          <button type="button" data-v="guitar" aria-pressed="false">吉他</button>
+          <button type="button" data-v="piano"  aria-pressed="false">鋼琴</button>
         </div>
       </div>
       <div class="field">
@@ -168,6 +169,7 @@
 
 </div>
 
+<script src="shared/chords.js"></script>
 <script src="shared/pitch.js"></script>
 <script src="shared/audio.js"></script>
 <script>
@@ -175,10 +177,10 @@
   "use strict";
   var $=function(id){ return document.getElementById(id); };
 
-  if(!window.MP || !MP.pitch || !MP.audio){
+  if(!window.MP || !MP.chords || !MP.pitch || !MP.audio){
     document.body.innerHTML = '<p style="max-width:640px;margin:48px auto;padding:0 16px;'+
       'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
-      '共用檔案載入失敗（需要 shared/pitch.js 與 shared/audio.js）。'+
+      '共用檔案載入失敗（需要 shared/chords.js、shared/pitch.js、shared/audio.js）。'+
       '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
     return;
   }
@@ -227,13 +229,15 @@
 
   /* 鋼琴音色改成先算取樣緩衝再播（shared/audio.js，參數移植自 PitchPal）。
      CHORD_GAIN 把單音壓到四個音同時響也不爆掉。 */
-  var CHORD_GAIN=0.15, CHORD_SPREAD=0.012;
+  var PIANO_GAIN=0.15,  PIANO_SPREAD=0.012;
+  var GUITAR_GAIN=0.13, GUITAR_SPREAD=0.028;   // 吉他要慢一點才像刷弦
 
   /* 緩衝要快取。schedule() 只提前 0.12 秒排程，
      如果每小節都重算三秒長的緩衝會來不及，聲音會斷。 */
   var chordCache={};
-  function chordBuffers(name,dur){
-    var k=name+"@"+dur.toFixed(3);
+
+  function pianoBuffers(name,dur){
+    var k="p:"+name+"@"+dur.toFixed(3);
     if(!chordCache[k]){
       chordCache[k]=CHORD[name].map(function(m){
         return MP.audio.pianoBuffer(ctx,mtof(m),dur);
@@ -242,21 +246,53 @@
     return chordCache[k];
   }
 
+  /* 吉他伴奏用的是 shared/chords.js 裡真正的開放和弦指型，
+     跟 fingering.html 教的同一組 —— 聽到的就是你手上要按的那個。 */
+  function guitarBuffers(name,dur){
+    var shape=MP.chords.GUITAR_SHAPES[name];
+    if(!shape) return null;
+    var k="g:"+name+"@"+dur.toFixed(3);
+    if(!chordCache[k]){
+      var tuning=MP.chords.GUITAR_TUNING, list=[];
+      shape.frets.forEach(function(fr,s){
+        if(fr===null) return;                     // 這條弦不彈
+        list.push(MP.audio.guitarBuffer(ctx,mtof(tuning[s]+fr),dur));
+      });
+      chordCache[k]=list;
+    }
+    return chordCache[k];
+  }
+
   function playChord(name,t,dur){
     if(!CHORD[name]) return;
-    chordBuffers(name,dur).forEach(function(bf,i){
-      MP.audio.playBuffer(ctx,out,bf,t+i*CHORD_SPREAD,
-        { cutoff:MP.audio.LOWPASS.piano, gain:CHORD_GAIN });
+
+    if(S.back==="guitar"){
+      var gb=guitarBuffers(name,dur);
+      if(gb){
+        gb.forEach(function(bf,i){
+          MP.audio.playBuffer(ctx,out,bf,t+i*GUITAR_SPREAD,
+            { cutoff:MP.audio.LOWPASS.guitar, gain:GUITAR_GAIN });
+        });
+        return;
+      }
+      // 沒有這個和弦的吉他指型就退回鋼琴，不要變成無聲
+    }
+
+    pianoBuffers(name,dur).forEach(function(bf,i){
+      MP.audio.playBuffer(ctx,out,bf,t+i*PIANO_SPREAD,
+        { cutoff:MP.audio.LOWPASS.piano, gain:PIANO_GAIN });
     });
   }
 
   /* 開始前先把這首用到的和弦算好，避免第一小節卡住 */
   function warmChords(){
-    if(S.back!=="chord") return;
+    if(!ctx || S.back==="click") return;      // 還沒建立音訊環境就先不算
     var sg=song(), dur=(60/S.bpm)*sg.beats*0.92, seen={};
     sg.bars.forEach(function(n){
       if(seen[n] || !CHORD[n]) return;
-      seen[n]=1; chordBuffers(n,dur);
+      seen[n]=1;
+      if(S.back==="guitar" && guitarBuffers(n,dur)) return;
+      pianoBuffers(n,dur);
     });
   }
 
@@ -300,7 +336,7 @@
     var spb=60/S.bpm, sg=song();
     while(nextT<ctx.currentTime+0.12){
       click(nextT, sBeat===0);
-      if(S.back==="chord" && sBeat===0 && sBar>=0){
+      if(S.back!=="click" && sBeat===0 && sBar>=0){
         playChord(sg.bars[sBar%sg.bars.length], nextT, spb*sg.beats*0.92);
       }
       queue.push({t:nextT, beat:sBeat, bar:sBar, spb:spb});
@@ -461,7 +497,7 @@
       fn(b.dataset.v);
     });
   }
-  seg("back",function(v){ S.back=v; });
+  seg("back",function(v){ S.back=v; warmChords(); });
   function setMic(v){
     S.mic=v;
     Array.prototype.forEach.call($("micseg").children,function(x){
@@ -492,6 +528,12 @@
     $("meta").textContent="Key of "+sg.key+"　"+sg.beats+"/4　"+
       sg.bars.length+" 小節　·　"+sg.note;
   }
+
+  /* 這個模組不分樂器（伴奏音色另外選），但要把 index.html 的選擇原樣帶回去 */
+  (function(){
+    var back=document.querySelector(".mp-back");
+    if(back) back.href="index.html"+location.search;
+  })();
 
   buildLamps(); paintMeta(); paintChart(); paintFeedback();
   if(insecure()){

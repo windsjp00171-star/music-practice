@@ -152,8 +152,18 @@
     { v:"cleared", label:"過關" }
   ];
 
-  var data=null, inst="guitar", timer=null;
+  /* 預設樂器由 index.html 的「今天練什麼」透過 ?inst= 帶進來 */
+  var data=null, timer=null;
+  var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";
   var $=function(id){ return document.getElementById(id); };
+
+  function syncInst(){
+    Array.prototype.forEach.call($("inst").children,function(x){
+      x.setAttribute("aria-pressed", x.dataset.v===inst ? "true":"false");
+    });
+    var back=document.querySelector(".mp-back");
+    if(back) back.href="index.html"+(inst==="piano" ? "?inst=piano" : "");
+  }
 
   function blank(){
     var s={};
@@ -247,9 +257,7 @@
   $("inst").addEventListener("click",function(e){
     var b=e.target.closest("button"); if(!b) return;
     inst=b.dataset.v;
-    Array.prototype.forEach.call(this.children,function(x){
-      x.setAttribute("aria-pressed", x===b ? "true":"false");
-    });
+    syncInst();
     render();
   });
 
@@ -269,6 +277,7 @@
     });
   });
 
+  syncInst();
   load();
 })();
 </script>

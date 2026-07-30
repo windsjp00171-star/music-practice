@@ -20,10 +20,19 @@
 | `demo.html` | 換和弦動畫（自動算支點手指）、三和弦音訊、踏板三種踩法對比 | — |
 | `chord-trainer.html` | 節拍器 ＋ 隨機和弦提示，含級數模式與 capo 建議 | — |
 | `progress.html` | 能力制八關進度 ＋ 通過條件 ＋ 卡點紀錄 ＋ 匯出 | — |
-| `playalong.html` | 跟著彈：六首曲目、伴奏、時間差回饋 | 選用 |
+| `playalong.html` | 跟著彈：六首曲目、吉他／鋼琴伴奏、時間差回饋 | 選用 |
 | `listen.html` | 調音器／逐弦檢查／認音 | **是** |
 
 **五個非麥克風模組直接雙擊開啟就能用**（`file://`）。
+
+### 今天練什麼
+
+`index.html` 上方可以選木吉他或鋼琴，它會把選擇寫進下面的模組連結（`?inst=piano`）。
+
+- `zero`、`fingering`、`demo`、`progress` 會拿它當預設樂器，頁內的切換仍然隨時可改
+- `chord-trainer`、`playalong`、`listen` 不分樂器，但會把參數原樣帶回 index，來回切換不會被重設
+
+用 URL 參數而不是儲存，是因為 `file://` 下沒有可用的儲存。
 
 ### 麥克風功能需要 HTTPS
 
