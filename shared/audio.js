@@ -92,6 +92,14 @@
     return buffer;
   }
 
+  /* 撥下去之後每秒衰減多少。
+     原始碼寫的是 exp(-0.8 · progress)，progress 是「在這個音長裡的百分比」，
+     等於讓衰減被音長綁架：音長設多久，就到最後才衰減到同一個比例，
+     然後被淡出硬切掉——聽起來是「一直響、然後突然斷」。
+     真實的弦不是這樣，撥完就照自己的速度衰減，跟你想讓它響多久無關。
+     所以改成以秒計算。 */
+  var GUITAR_DECAY_PER_SEC = 1.5;
+
   function guitarBuffer(ctx, freq, dur){
     var sr = ctx.sampleRate, N = Math.max(1, Math.round(sr * dur));
     var buffer = ctx.createBuffer(1, N, sr), d = buffer.getChannelData(0);
@@ -110,7 +118,7 @@
       var p2 = n - period - 1 >= 0 ? d[n - period - 1] : 0;
       d[n] = x + c * 0.5 * p1 + c * 0.5 * p2;
     }
-    for(var m = 0; m < N; m++) d[m] *= Math.exp(-0.8 * (m / N));
+    for(var m = 0; m < N; m++) d[m] *= Math.exp(-GUITAR_DECAY_PER_SEC * (m / sr));
 
     /* Karplus–Strong 的起振已經含在 impulse 裡，不再加 attack */
     applyEnvelope(d, sr, 0, 0.020, 0.70 * rand(0.85, 1.15));
