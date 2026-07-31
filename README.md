@@ -21,9 +21,12 @@
 | `chord-trainer.html` | 節拍器 ＋ 隨機和弦提示，含級數模式與 capo 建議 | — |
 | `progress.html` | 能力制八關進度 ＋ 通過條件 ＋ 卡點紀錄 ＋ 匯出 | — |
 | `playalong.html` | 跟著彈：六首曲目、吉他／鋼琴伴奏、時間差回饋 | 選用 |
+| `falling-guitar.html` | 掉落練習 · 吉他：六個練習，canvas 六弦道 | 選用 |
+| `falling.html` | 掉落練習 · 鋼琴：五個練習，canvas 鍵盤 | 選用 |
+| `songs.html` | 我的曲目：自行輸入和弦譜，支援級數輸入與即時移調 | — |
 | `listen.html` | 調音器／逐弦檢查／認音 | **是** |
 
-**五個非麥克風模組直接雙擊開啟就能用**（`file://`）。
+**非麥克風功能在 `file://` 下全部正常**：掉落塊、示範音、節拍器、指法圖、進度都照跑。
 
 ### 今天練什麼
 
@@ -66,10 +69,18 @@ python3 -m http.server 8000
 
 ## 資料存在哪裡
 
-指法圖註記與關卡進度存在 `window.storage`（不是 localStorage）。
+指法圖註記、關卡進度、自建曲目存在瀏覽器裡。`shared/store.js` 會先找
+`window.storage`（沙箱環境才有），沒有就用 `localStorage`。
 
-**如果執行環境沒有 `window.storage`，資料不會保存**，頁面會直接說出來。
-這種情況下請用 `index.html` 或 `progress.html` 的「匯出 markdown」把紀錄帶走。
+**`localStorage` 綁 origin**，下面這幾個互不相通：
+
+```
+file://                       雙擊開啟
+http://localhost:8000         本機 server
+https://<帳號>.github.io/...   部署後
+```
+
+在一個地方填的進度，換到另一個看不到。要搬資料只能用「匯出 markdown」。
 
 ---
 
@@ -80,6 +91,9 @@ index.html            模組入口
 zero / fingering / demo / chord-trainer / progress / listen / playalong .html
 shared/
   tokens.css          設計 token
+  clock.js            lookahead 排程器、時間軸幾何
+  timing.js           音頭偵測、時間差統計
+  stages.js           八關關卡資料
   theory.js           樂理計算（順階和弦、capo、和弦解析）
   chords.js           指型與 voicing 資料
   pitch.js            音高偵測、麥克風

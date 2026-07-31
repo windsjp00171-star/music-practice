@@ -342,7 +342,7 @@
     key: "G",
     reveal: false,
     show: "always",
-    inst: "guitar",
+    inst: /[?&]inst=piano/.test(location.search) ? "piano" : "guitar",
     on: { name: new Set(ON_INIT), degree: new Set(["1","4","5","6m"]) },
     running: false
   };
@@ -548,8 +548,10 @@
 
   /* ---------- 節拍引擎 ---------- */
 
-  var ctx = null, timer = null, raf = null;
-  var nextTime = 0, sBeat = 0, sBar = -1, sCur = null, sNxt = null;
+  var ctx = null, beatClock = null, raf = null;
+  var sBeat = 0, sBar = -1, sCur = null, sNxt = null;
+
+  function spbNow(){ return 60 / S.bpm; }
   var queue = [];
   var view = { beat:0, base:0, at:0, spb:0.85, total:8 };
 
@@ -557,32 +559,30 @@
     MP.audio.click(ctx, ctx.destination, t, down, { gainDown:0.5, gainUp:0.26 });
   }
 
-  function schedule(){
-    var spb = 60 / S.bpm;
-    while(nextTime < ctx.currentTime + 0.1){
-      click(nextTime, sBeat === 0);
-      var barsIn = sBar < 0 ? 0 : (sBar % S.span);
-      queue.push({
-        t: nextTime,
-        beat: sBeat,
-        cur: sCur,
-        nxt: sNxt,
-        base: (barsIn * S.beats + sBeat) / (S.span * S.beats),
-        spb: spb,
-        total: S.span * S.beats,
-        warm: sBar < 0
-      });
+  /* 排程器在 shared/clock.js，這裡只管「這一拍要顯示什麼」。
+     spbNow 每拍重問一次，所以播放中改 BPM 會從下一拍生效。 */
+  function onBeat(index, t){
+    click(t, sBeat === 0);
+    var barsIn = sBar < 0 ? 0 : (sBar % S.span);
+    queue.push({
+      t: t,
+      beat: sBeat,
+      cur: sCur,
+      nxt: sNxt,
+      base: (barsIn * S.beats + sBeat) / (S.span * S.beats),
+      spb: spbNow(),
+      total: S.span * S.beats,
+      warm: sBar < 0
+    });
 
-      sBeat++;
-      if(sBeat >= S.beats){
-        sBeat = 0;
-        sBar++;
-        if(sBar % S.span === 0){
-          sCur = sNxt;
-          sNxt = pick(sCur);
-        }
+    sBeat++;
+    if(sBeat >= S.beats){
+      sBeat = 0;
+      sBar++;
+      if(sBar % S.span === 0){
+        sCur = sNxt;
+        sNxt = pick(sCur);
       }
-      nextTime += spb;
     }
   }
 
@@ -614,10 +614,10 @@
 
     sBeat = 0; sBar = -1; sCur = null; sNxt = pick(null);
     queue.length = 0;
-    nextTime = ctx.currentTime + 0.12;
     paint(null, sNxt);
 
-    timer = setInterval(schedule, 25);
+    if(!beatClock) beatClock = MP.clock.createBeatClock(ctx, { ahead:0.1, intervalMs:25 });
+    beatClock.start(ctx.currentTime + 0.12, spbNow, onBeat);
     raf = requestAnimationFrame(frame);
   }
 
@@ -625,7 +625,7 @@
     S.running = false;
     el.run.textContent = "開始";
     el.run.classList.remove("is-on");
-    clearInterval(timer);
+    if(beatClock) beatClock.stop();
     cancelAnimationFrame(raf);
     queue.length = 0;
     el.track.style.width = "0";
@@ -722,6 +722,18 @@
   paint(null, null);
   writeNote();
   setBpm(70);
+
+  /* 按法圖的樂器跟著 index.html 的「今天練什麼」 */
+  Array.prototype.forEach.call($("instseg").children,function(x){
+    x.setAttribute("aria-pressed", x.dataset.v===S.inst ? "true":"false");
+  });
+
+  /* 返回連結把樂器選擇原樣帶回去 */
+  (function(){
+    var back=document.querySelector(".mp-back");
+    if(back) back.href="index.html"+location.search;
+  })();
+
 })();
 </script>
 </body>

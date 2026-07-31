@@ -474,6 +474,13 @@
     gateMsg("<b>提醒：目前是 <code>file://</code> 環境，麥克風拿不到。</b><br>"+
       "按上面的按鈕會看到完整說明。要用麥克風功能，這包檔案需要放到 HTTPS 靜態主機。");
   }
+
+  /* 這個模組不分樂器，但要把 index.html 的選擇原樣帶回去，返回後才不會被重設 */
+  (function(){
+    var back=document.querySelector(".mp-back");
+    if(back) back.href="index.html"+location.search;
+  })();
+
 })();
 </script>
 </body>

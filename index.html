@@ -171,17 +171,19 @@
 
   <div class="tools">
     <h2>離線閱讀用的匯出</h2>
-    <p>把關卡進度、卡點紀錄、指法圖註記匯出成一份 markdown。
-       這是唯一能把資料帶離瀏覽器的方式，換裝置或想留紀錄的時候用。</p>
+    <p>把關卡進度、卡點紀錄、指法圖註記、自建曲目匯出成一份 markdown。
+       資料存在這個瀏覽器裡，換裝置或換網址（<code>file://</code> 跟網頁版算不同地方）
+       不會跟著走，要搬就用這個。</p>
     <button class="ghost" id="export" type="button">匯出 markdown</button>
     <span class="status" id="status"></span>
   </div>
 
   <p class="foot">
-    「聽我彈」需要麥克風，瀏覽器只在 <code>https://</code> 或 <code>localhost</code> 給麥克風權限，
-    直接雙擊開啟的 <code>file://</code> 檔案拿不到——這是硬性安全規則，不是設定問題。
-    其他五個模組在 <code>file://</code> 下都能正常跑。<br>
-    曲庫只收 1929 年前的公有領域聖詩。
+    麥克風功能（「聽我彈」，以及跟著彈與兩個掉落練習的時間差回饋）需要
+    <code>https://</code> 或 <code>localhost</code>，直接雙擊開啟的 <code>file://</code> 拿不到——
+    這是瀏覽器的硬性安全規則，不是設定問題。<br>
+    <b>其餘功能在 <code>file://</code> 下全部正常</b>：掉落塊、示範音、節拍器、指法圖、進度都照跑。<br>
+    內建曲目是公有領域作品；自己的譜用「我的曲目」輸入，只存在這台裝置。
   </p>
 
 </div>
@@ -244,7 +246,7 @@
   });
 
   if(!MP.store.available()){
-    $("status").textContent="此環境沒有 window.storage，匯出的內容會是空的";
+    $("status").textContent="這個環境無法儲存，匯出的內容會是空的";
   }
 })();
 </script>
