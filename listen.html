@@ -156,64 +156,96 @@
 
 </div>
 
-<script src="shared/chords.js"></script>
-<script src="shared/pitch.js"></script>
 <script>
 (function(){
   "use strict";
   var $=function(id){ return document.getElementById(id); };
 
-  if(!window.MP || !MP.chords || !MP.pitch){
-    document.body.innerHTML = '<p style="max-width:620px;margin:48px auto;padding:0 16px;'+
-      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
-      '共用檔案載入失敗（需要 shared/chords.js 與 shared/pitch.js）。'+
-      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
-    return;
-  }
+  var NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  var OPEN=[40,45,50,55,59,64];              // 第6弦 → 第1弦 MIDI
+  var SNAMES=["E","A","D","G","B","e"];
 
-  var OPEN=MP.chords.GUITAR_TUNING;          // 第6弦 → 第1弦 MIDI
-  var SNAMES=MP.chords.STRING_NAMES;
+  var CHORDS={
+    "Em":[0,2,2,0,0,0], "Am":[null,0,2,2,1,0], "A":[null,0,2,2,2,0],
+    "D":[null,null,0,2,3,2], "Dm":[null,null,0,2,3,1], "E":[0,2,2,1,0,0],
+    "C":[null,3,2,0,1,0], "G":[3,2,0,0,0,3]
+  };
 
-  /* 逐弦檢查提供的和弦。指型資料在 shared/chords.js，這裡只列要顯示哪幾個。 */
-  var CHORD_LIST=["Em","Am","A","D","Dm","E","C","G"];
-  var CHORDS={};
-  CHORD_LIST.forEach(function(k){ CHORDS[k]=MP.chords.GUITAR_SHAPES[k].frets; });
+  function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
+  function ftom(f){ return 12*Math.log2(f/440)+69; }
+  function nameOf(m){ var i=((Math.round(m)%12)+12)%12; return NAMES[i]; }
+  function octOf(m){ return Math.floor(Math.round(m)/12)-1; }
 
-  var mtof=MP.pitch.mtof, ftom=MP.pitch.ftom;
-  var nameOf=MP.pitch.nameOf, octOf=MP.pitch.octOf;
+  /* ---------- 音高偵測（自相關，限定 lag 範圍） ---------- */
 
-  /* detect() 回 { rms, freq }；這裡沿用原本「沒有可信音高就是 null」的介面 */
+  var MINF=68, MAXF=1100;
+
   function detect(buf, sr){
-    var r=MP.pitch.detect(buf, sr, { minRms:0.01 });
-    return r.freq === null ? null : r;
+    var N=buf.length, rms=0;
+    for(var i=0;i<N;i++) rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/N);
+    if(rms<0.01) return null;
+
+    var loMin=Math.floor(sr/MAXF), loMax=Math.min(Math.floor(sr/MINF), Math.floor(N/2));
+    var best=-1, bestLag=-1, c=new Float32Array(loMax+2);
+
+    for(var lag=loMin; lag<=loMax; lag++){
+      var s=0;
+      for(var j=0;j<N-lag;j++) s+=buf[j]*buf[j+lag];
+      s/=(N-lag);
+      c[lag]=s;
+      if(s>best){ best=s; bestLag=lag; }
+    }
+    if(bestLag<0 || best<=0) return null;
+
+    var x1=c[bestLag-1]||0, x2=c[bestLag], x3=c[bestLag+1]||0;
+    var a=(x1+x3-2*x2)/2, b=(x3-x1)/2, T=bestLag;
+    if(a!==0) T=bestLag-b/(2*a);
+
+    var f=sr/T;
+    if(f<MINF||f>MAXF) return null;
+    return { freq:f, rms:rms };
   }
 
   /* ---------- 麥克風 ---------- */
 
-  var mic=null, ctx=null, analyser=null, buf=null, raf=null, live=false;
+  var ctx=null, analyser=null, buf=null, stream=null, raf=null, live=false;
 
   function gateMsg(html){
     $("gate").innerHTML='<div class="card"><div class="err">'+html+'</div></div>';
   }
 
-  var insecure=MP.pitch.isInsecure;
-
-  var GATE_MSG={
-    insecure:
-      "<b>這個環境拿不到麥克風。</b><br>"+
-      "瀏覽器只允許 <code>https://</code> 或 <code>localhost</code> 存取麥克風，"+
-      "直接雙擊開啟的 <code>file://</code> 檔案不行——這是硬性安全規則。<br><br>"+
-      "解法：把整包放上任何 HTTPS 靜態主機（GitHub Pages 免費、純靜態、不需要後端）。"+
-      "本機測試可以在資料夾裡跑 <code>python3 -m http.server</code>，再開 "+
-      "<code>localhost:8000</code>。",
-    unsupported:
-      "<b>這個瀏覽器不支援麥克風存取。</b>換 Safari 或 Chrome 試試。"
-  };
+  function insecure(){
+    return !(window.isSecureContext ||
+             location.protocol==="https:" ||
+             location.hostname==="localhost" ||
+             location.hostname==="127.0.0.1");
+  }
 
   function startMic(){
-    MP.pitch.requestMic().then(function(handle){
-      mic=handle;
-      ctx=handle.ctx; analyser=handle.analyser; buf=handle.buf;
+    if(insecure()){
+      gateMsg("<b>這個環境拿不到麥克風。</b><br>"+
+        "瀏覽器只允許 <code>https://</code> 或 <code>localhost</code> 存取麥克風，"+
+        "直接雙擊開啟的 <code>file://</code> 檔案不行——這是硬性安全規則。<br><br>"+
+        "解法：把整包放上任何 HTTPS 靜態主機（GitHub Pages 免費、純靜態、不需要後端）。"+
+        "本機測試可以在資料夾裡跑 <code>python3 -m http.server</code>，再開 "+
+        "<code>localhost:8000</code>。");
+      return;
+    }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      gateMsg("<b>這個瀏覽器不支援麥克風存取。</b>換 Safari 或 Chrome 試試。");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+    }).then(function(s){
+      stream=s;
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      var src=ctx.createMediaStreamSource(s);
+      analyser=ctx.createAnalyser();
+      analyser.fftSize=2048;
+      buf=new Float32Array(analyser.fftSize);
+      src.connect(analyser);
       live=true;
       $("gate").innerHTML="";
       $("main").classList.remove("hidden");
@@ -222,18 +254,18 @@
       render();
       loop();
     }).catch(function(e){
-      gateMsg(GATE_MSG[e.code] ||
-        ("<b>麥克風被拒絕或無法開啟。</b><br>"+
-         "在瀏覽器網址列旁的權限設定裡允許麥克風，然後重試。<br>"+
-         "<code>"+(e.name || "unknown")+"</code>"));
+      gateMsg("<b>麥克風被拒絕或無法開啟。</b><br>"+
+        "在瀏覽器網址列旁的權限設定裡允許麥克風，然後重試。<br>"+
+        "<code>"+(e && e.name ? e.name : "unknown")+"</code>");
     });
   }
 
   function stopMic(){
     live=false;
     cancelAnimationFrame(raf);
-    MP.pitch.releaseMic(mic);
-    mic=null; ctx=null; analyser=null; buf=null;
+    if(stream) stream.getTracks().forEach(function(t){ t.stop(); });
+    if(ctx) ctx.close();
+    ctx=null; analyser=null; stream=null;
     $("main").classList.add("hidden");
     $("mic").textContent="開啟麥克風";
     $("mic").classList.remove("on");
@@ -471,12 +503,6 @@
     if(mode==="chord") resetChord();
     render();
   });
-
-  /* 這個模組不分樂器，但要把 index.html 的選擇原樣帶回去，返回後才不會被重設 */
-  (function(){
-    var back=document.querySelector(".mp-back");
-    if(back) back.href="index.html"+location.search;
-  })();
 
   resetChord();
   if(insecure()){

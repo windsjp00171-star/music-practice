@@ -113,24 +113,17 @@
 (function(){
   "use strict";
 
-  if(!window.MP || !MP.chords || !MP.store){
-    document.body.innerHTML = '<p style="max-width:620px;margin:48px auto;padding:0 16px;'+
-      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
-      '共用檔案載入失敗（需要 shared/chords.js 與 shared/store.js）。'+
-      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
-    return;
-  }
+  if(!window.MP||!MP.chords||!MP.store){ document.body.innerHTML='<p style="max-width:620px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/chords.js 與 shared/store.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>'; return; }
 
   var KEY = MP.store.KEYS.fingering;
 
-  /* 指型與 voicing 資料在 shared/chords.js。要改和弦清單改那裡。 */
+  /* 指型與 voicing 資料在 shared/chords.js。要改和弦清單就改那裡。 */
   var GUITAR = MP.chords.GUITAR_SHAPES;
   var PIANO  = MP.chords.PIANO_CHORDS;
 
   var PIANO_DESC = "右手三個音。第三週開始練轉位——轉位讓手幾乎不用移動，聲音也連得起來。";
 
-  /* 預設樂器由 index.html 的「今天練什麼」透過 ?inst= 帶進來 */
-  var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";
+  var inst = "guitar";
   var sel = { guitar:"Em", piano:"C" };
   var notes = {};
   var saveTimer = null;
@@ -260,9 +253,7 @@
   function save(){
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function(){
-      if(!MP.store.available()){
-        $("status").textContent = "此環境無法儲存，離開後註記會清空"; return;
-      }
+      if(!MP.store.available()){ $("status").textContent = "此環境無法儲存，離開後註記會清空"; return; }
       MP.store.set(KEY, notes)
         .then(function(){ $("status").textContent = "註記已儲存"; })
         .catch(function(){ $("status").textContent = "儲存失敗，剛才的註記沒存到"; });
@@ -270,9 +261,7 @@
   }
 
   function load(){
-    if(!MP.store.available()){
-      $("status").textContent = "此環境無法儲存，離開後註記會清空"; render(); return;
-    }
+    if(!MP.store.available()){ $("status").textContent = "此環境無法儲存，離開後註記會清空"; render(); return; }
     MP.store.get(KEY).then(function(v){
       notes = v || {};
       render();
@@ -346,23 +335,16 @@
     card.appendChild(ta);
   }
 
-  function syncInst(){
-    Array.prototype.forEach.call($("inst").children, function(x){
-      x.setAttribute("aria-pressed", x.dataset.v === inst ? "true" : "false");
-    });
-    var back = document.querySelector(".mp-back");
-    if(back) back.href = "index.html" + (inst === "piano" ? "?inst=piano" : "");
-  }
-
   $("inst").addEventListener("click", function(e){
     var b = e.target.closest("button");
     if(!b) return;
     inst = b.dataset.v;
-    syncInst();
+    Array.prototype.forEach.call(this.children, function(x){
+      x.setAttribute("aria-pressed", x === b ? "true":"false");
+    });
     render();
   });
 
-  syncInst();
   load();
 })();
 </script>

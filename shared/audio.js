@@ -23,14 +23,18 @@
     var gain = isDownbeat
       ? (opts.gainDown === undefined ? 0.5  : opts.gainDown)
       : (opts.gainUp   === undefined ? 0.26 : opts.gainUp);
+    var freq = isDownbeat
+      ? (opts.freqDown === undefined ? 1550 : opts.freqDown)
+      : (opts.freqUp   === undefined ? 920  : opts.freqUp);
+    var decay = opts.decay === undefined ? 0.05 : opts.decay;
 
     var o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.value = isDownbeat ? 1550 : 920;
+    o.frequency.value = freq;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.001);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
     o.connect(g); g.connect(dest);
-    o.start(t); o.stop(t + 0.06);
+    o.start(t); o.stop(t + decay + 0.01);
   }
 
   /* ---------- 音色 ---------- */
@@ -140,12 +144,42 @@
     return src;
   }
 
+  /* ---------- 快取 ----------
+     掉落練習每個循環都要重放同樣的音。三秒長的緩衝重算一次要幾十毫秒，
+     每輪都算會卡住畫面，所以照 (音色, 頻率, 長度, 取樣率) 快取。
+     副作用：同一個音每次聽起來完全一樣，沒有原本每次微調音的隨機感。
+     這裡選穩定不卡頓。 */
+  var cache = {}, cacheOrder = [], CACHE_MAX = 240;
+
+  function noteBuffer(kind, ctx, freq, dur){
+    var key = kind + ":" + freq.toFixed(2) + ":" + dur.toFixed(3) + ":" + ctx.sampleRate;
+    var buf = cache[key];
+    if(!buf){
+      buf = kind === "guitar" ? guitarBuffer(ctx, freq, dur) : pianoBuffer(ctx, freq, dur);
+      cache[key] = buf;
+      cacheOrder.push(key);
+      if(cacheOrder.length > CACHE_MAX) delete cache[cacheOrder.shift()];
+    }
+    return buf;
+  }
+
+  /* 一行播一個音：kind 是 "piano" 或 "guitar" */
+  function playNote(kind, ctx, dest, freq, t, dur, opts){
+    opts = opts || {};
+    return playBuffer(ctx, dest, noteBuffer(kind, ctx, freq, dur), t, {
+      cutoff: opts.cutoff === undefined ? LOWPASS[kind] : opts.cutoff,
+      gain: opts.gain
+    });
+  }
+
   MP.audio = {
     click: click,
     PIANO_HARMONICS: PIANO_HARMONICS,
     LOWPASS: LOWPASS,
     pianoBuffer: pianoBuffer,
     guitarBuffer: guitarBuffer,
+    noteBuffer: noteBuffer,
+    playNote: playNote,
     playBuffer: playBuffer
   };
 })(window);

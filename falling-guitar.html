@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>掉落練習 · 吉他</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--ink); color:var(--paper);
+        font-family:"Noto Sans TC", system-ui, sans-serif;
+        -webkit-font-smoothing:antialiased; padding-bottom:40px; }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 14px; }
+
+  header{ padding:16px 0 12px; border-bottom:1px solid var(--line);
+          display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  .run{ background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+        padding:10px 22px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+  .run.on{ background:var(--amber); color:#241703; }
+  .run:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+
+  .picker{ display:flex; align-items:center; gap:10px; margin:14px 0 6px; flex-wrap:wrap; }
+  .picker label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  select{ background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+          border-radius:8px; padding:8px 11px; font-family:inherit; font-size:13.5px; cursor:pointer; }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .meta{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-bottom:10px; }
+
+  canvas{ display:block; width:100%; border:1px solid var(--line);
+          border-radius:12px; background:var(--ink-2); }
+
+  .fb{ background:var(--ink-2); border:1px solid var(--line); border-radius:12px;
+       padding:14px 15px; margin-top:12px; }
+  .fbrow{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .fbrow:last-of-type{ margin-bottom:0; }
+  .fblab{ font-size:12px; color:var(--dim); }
+  .fbval{ font-family:"Archivo",sans-serif; font-weight:800; font-size:17px;
+          font-variant-numeric:tabular-nums; }
+  .fbval.ok{ color:var(--good); } .fbval.off{ color:var(--amber); } .fbval.bad{ color:var(--bad); }
+  .fbnote{ font-size:12px; color:var(--dim); line-height:1.7; margin-top:10px;
+           padding-top:10px; border-top:1px solid var(--line); }
+  .fbnote b{ color:var(--paper); font-weight:500; }
+
+  .panel{ border-top:1px solid var(--line); margin-top:16px; padding-top:14px;
+          display:flex; flex-direction:column; gap:13px; }
+  .row{ display:flex; flex-wrap:wrap; align-items:center; gap:11px 20px; }
+  .field{ display:flex; align-items:center; gap:9px; }
+  .field > label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  .step{ width:31px; height:31px; border-radius:8px; background:var(--ink-3);
+         color:var(--paper); border:1px solid var(--line); cursor:pointer; font-size:16px; }
+  .step:hover{ background:var(--line); }
+  .bv{ font-family:"Archivo",sans-serif; font-weight:700; font-size:22px;
+       min-width:56px; text-align:center; font-variant-numeric:tabular-nums; }
+  .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button{ background:transparent; color:var(--dim); border:none;
+               border-right:1px solid var(--line); padding:8px 12px; font-size:12.5px;
+               cursor:pointer; font-family:inherit; }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .err{ background:rgba(216,105,94,.1); border-left:2px solid var(--bad);
+        border-radius:0 7px 7px 0; padding:11px 13px; font-size:12.5px;
+        line-height:1.75; color:#F0D6D2; }
+  .err b{ color:var(--bad); }
+  .err code{ font-family:"Archivo",monospace; background:rgba(0,0,0,.25);
+             padding:1px 5px; border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <h1>掉落練習 · 吉他</h1>
+    <button class="run" id="run" type="button">開始</button>
+  </header>
+
+  <div class="picker">
+    <label for="ex">練習</label>
+    <select id="ex"></select>
+  </div>
+  <p class="meta" id="meta"></p>
+
+  <canvas id="cv" width="612" height="400"></canvas>
+
+  <div class="fb" id="fb"></div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="field">
+        <label>速度</label>
+        <button class="step" id="bd" type="button" aria-label="降速">−</button>
+        <div class="bv" id="bv">50</div>
+        <button class="step" id="bu" type="button" aria-label="加速">+</button>
+      </div>
+      <div class="field">
+        <label>看前面</label>
+        <div class="seg" id="lead">
+          <button type="button" data-v="4" aria-pressed="true">4 拍</button>
+          <button type="button" data-v="8" aria-pressed="false">8 拍</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>示範音</label>
+        <div class="seg" id="demo">
+          <button type="button" data-v="off" aria-pressed="false">關</button>
+          <button type="button" data-v="on"  aria-pressed="true">開</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>聽我彈</label>
+        <div class="seg" id="micseg">
+          <button type="button" data-v="off" aria-pressed="true">關</button>
+          <button type="button" data-v="on"  aria-pressed="false">開</button>
+        </div>
+      </div>
+    </div>
+    <div id="gate"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){ return document.getElementById(id); };
+  var OPEN=[40,45,50,55,59,64];                 // 第6弦 → 第1弦
+  var NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  var SHAPE={
+    "Em":[0,2,2,0,0,0], "Am":[null,0,2,2,1,0], "A":[null,0,2,2,2,0],
+    "D":[null,null,0,2,3,2], "E":[0,2,2,1,0,0],
+    "C":[null,3,2,0,1,0], "G":[3,2,0,0,0,3]
+  };
+
+  // e(起始拍, 長度, [六弦格數或 null], 標籤, 刷弦方向)
+  function chord(b,d,name,dir){
+    return { b:b, d:d, frets:SHAPE[name].slice(), label:name, dir:dir||null, poly:true };
+  }
+  function pluck(b,d,str,fret,label){
+    var f=[null,null,null,null,null,null]; f[str]=fret;
+    return { b:b, d:d, frets:f, label:label||null, poly:false };
+  }
+
+  var EX={
+    emam:{ name:"Em ↔ Am 交替", note:"對應進度第 4 關。看橘色的塊——那是不用動的手指位置。", len:8,
+      e:[ chord(0,3.6,"Em"), chord(4,3.6,"Am") ] },
+
+    ade:{ name:"A – D – E 循環", note:"對應進度第 6 關。D 只彈四條弦,注意左邊兩條沒有塊。", len:12,
+      e:[ chord(0,3.6,"A"), chord(4,3.6,"D"), chord(8,3.6,"E") ] },
+
+    gcd:{ name:"G – C – D", note:"這三個和弦能伴很多歌。G 的手要張得比較開。", len:12,
+      e:[ chord(0,3.6,"G"), chord(4,3.6,"C"), chord(8,3.6,"D") ] },
+
+    arpEm:{ name:"分解和弦 · Em → Am（單音）", len:8,
+      note:"一拍撥一條弦。開麥克風時,這個模式會判斷你每一條弦彈得對不對。",
+      e:[ pluck(0,0.9,0,0,"Em"), pluck(1,0.9,2,2), pluck(2,0.9,3,0), pluck(3,0.9,4,0),
+          pluck(4,0.9,1,0,"Am"), pluck(5,0.9,2,2), pluck(6,0.9,3,2), pluck(7,0.9,4,1) ] },
+
+    down:{ name:"四拍下刷 · Em", note:"對應進度第 7 關。每拍一下,先求穩不求快。", len:8,
+      e:[ chord(0,0.8,"Em","D"), chord(1,0.8,"Em","D"), chord(2,0.8,"Em","D"), chord(3,0.8,"Em","D"),
+          chord(4,0.8,"Am","D"), chord(5,0.8,"Am","D"), chord(6,0.8,"Am","D"), chord(7,0.8,"Am","D") ] },
+
+    ddu:{ name:"下 下上 上下上（進階）", len:8,
+      note:"最常用的刷弦型。↓ 手往下,↑ 手往上。這個先不急,把和弦按乾淨再說。",
+      e:[ chord(0,0.4,"Em","D"), chord(1,0.4,"Em","D"), chord(1.5,0.4,"Em","U"),
+          chord(2.5,0.4,"Em","U"), chord(3,0.4,"Em","D"), chord(3.5,0.4,"Em","U"),
+          chord(4,0.4,"Am","D"), chord(5,0.4,"Am","D"), chord(5.5,0.4,"Am","U"),
+          chord(6.5,0.4,"Am","U"), chord(7,0.4,"Am","D"), chord(7.5,0.4,"Am","U") ] }
+  };
+
+  var S={ ex:"emam", bpm:50, lead:4, demo:"on", mic:"off", running:false };
+  function X(){ return EX[S.ex]; }
+
+  /* ---------- 音訊 ---------- */
+  var ctx=null,out=null;
+  function A(){
+    if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)();
+      out=ctx.createGain(); out.gain.value=0.5; out.connect(ctx.destination); }
+    if(ctx.state==="suspended") ctx.resume();
+    return ctx;
+  }
+  function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
+  function ftom(f){ return 12*Math.log2(f/440)+69; }
+
+  function gpluck(freq,t,dur,v){
+    var o=ctx.createOscillator(), f=ctx.createBiquadFilter(), g=ctx.createGain();
+    o.type="sawtooth"; o.frequency.value=freq;
+    f.type="lowpass";
+    f.frequency.setValueAtTime(Math.min(freq*9,9000),t);
+    f.frequency.exponentialRampToValueAtTime(Math.max(freq*1.6,180),t+dur*0.7);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(v,t+0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t+dur+0.05);
+  }
+  function click(t,down){
+    var o=ctx.createOscillator(), g=ctx.createGain();
+    o.frequency.value=down?1500:900;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(down?0.2:0.1,t+0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t+0.05);
+  }
+  function playEv(e,t){
+    var order=[0,1,2,3,4,5];
+    if(e.dir==="U") order=order.slice().reverse();
+    var k=0;
+    order.forEach(function(s){
+      if(e.frets[s]===null) return;
+      gpluck(mtof(OPEN[s]+e.frets[s]), t+k*(e.poly?0.022:0), 1.3, e.poly?0.10:0.16);
+      k++;
+    });
+  }
+
+  /* ---------- 麥克風 ---------- */
+  var an=null,mbuf=null,stream=null,prevRms=0,lastOn=-1;
+  function insecure(){
+    return !(window.isSecureContext||location.protocol==="https:"||
+             location.hostname==="localhost"||location.hostname==="127.0.0.1");
+  }
+  function micOn(){
+    if(insecure()){
+      $("gate").innerHTML='<div class="err"><b>這個環境拿不到麥克風。</b>'+
+        '瀏覽器只允許 <code>https://</code> 或 <code>localhost</code>。'+
+        '掉落塊與示範音不受影響,可以正常練。</div>';
+      setSeg("micseg","off"); S.mic="off"; return;
+    }
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,
+      noiseSuppression:false,autoGainControl:false}}).then(function(s){
+      A(); stream=s;
+      var src=ctx.createMediaStreamSource(s);
+      an=ctx.createAnalyser(); an.fftSize=2048;
+      mbuf=new Float32Array(an.fftSize); src.connect(an);
+      $("gate").innerHTML="";
+    }).catch(function(){
+      $("gate").innerHTML='<div class="err"><b>麥克風被拒絕。</b>在權限設定裡允許後重試。</div>';
+      setSeg("micseg","off"); S.mic="off";
+    });
+  }
+  function micOff(){
+    if(stream) stream.getTracks().forEach(function(t){t.stop();});
+    stream=null; an=null; $("gate").innerHTML="";
+  }
+  function detect(buf,sr){
+    var N=buf.length,rms=0;
+    for(var i=0;i<N;i++) rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/N);
+    if(rms<0.012) return {rms:rms,freq:null};
+    var lmin=Math.floor(sr/1100), lmax=Math.min(Math.floor(sr/68),Math.floor(N/2));
+    var best=-1,bl=-1,c=new Float32Array(lmax+2);
+    for(var lag=lmin;lag<=lmax;lag++){
+      var s=0; for(var j=0;j<N-lag;j++) s+=buf[j]*buf[j+lag];
+      s/=(N-lag); c[lag]=s; if(s>best){best=s;bl=lag;}
+    }
+    if(bl<0||best<=0) return {rms:rms,freq:null};
+    var x1=c[bl-1]||0,x2=c[bl],x3=c[bl+1]||0;
+    var a=(x1+x3-2*x2)/2,b=(x3-x1)/2,T=bl;
+    if(a!==0) T=bl-b/(2*a);
+    var f=sr/T;
+    return {rms:rms,freq:(f>=68&&f<=1100)?f:null};
+  }
+
+  /* ---------- 幾何 ---------- */
+  var cv=$("cv"), g=cv.getContext("2d");
+  var W=cv.width, H=cv.height, FOOT=76, HIT=H-FOOT;
+  var PAD=26, LW=(W-PAD*2)/5;                 // 六條弦道
+  function laneX(s){ return PAD+LW*s; }
+
+  function spb(){ return 60/S.bpm; }
+  function leadSec(){ return S.lead*spb(); }
+  function pps(){ return HIT/leadSec(); }
+
+  var startT=0, offsets=[], lastMsg="";
+
+  function rr(x,y,w,h,r){
+    g.beginPath();
+    g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+    g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); g.fill();
+  }
+
+  function draw(now){
+    g.clearRect(0,0,W,H);
+    var x=X(), sp=spb(), P=pps();
+    var t = S.running ? (now-startT) : -leadSec();
+    var loopSec = x.len*sp;
+
+    // 弦道
+    for(var s=0;s<6;s++){
+      g.strokeStyle="#22302C"; g.lineWidth=3.4-s*0.42;
+      g.beginPath(); g.moveTo(laneX(s),0); g.lineTo(laneX(s),HIT); g.stroke();
+    }
+    // 拍線
+    g.strokeStyle="#1E2A27"; g.lineWidth=1;
+    for(var k=0;k<=S.lead+1;k++){
+      var bt=Math.ceil(t/sp)*sp+k*sp;
+      var y=HIT-(bt-t)*P;
+      if(y<0||y>HIT) continue;
+      g.beginPath(); g.moveTo(0,y+.5); g.lineTo(W,y+.5); g.stroke();
+    }
+
+    var BW=Math.min(LW*0.72, 34);
+    for(var rep=0;rep<2;rep++){
+      x.e.forEach(function(e){
+        var et=e.b*sp+rep*loopSec;
+        var top=HIT-(et+e.d*sp-t)*P, bot=HIT-(et-t)*P;
+        if(bot<-24||top>HIT+24) return;
+        var live = bot>HIT-4 && top<HIT;
+
+        e.frets.forEach(function(fr,s){
+          if(fr===null) return;
+          var cx=laneX(s), y0=Math.max(top,-24), y1=Math.min(bot,HIT);
+          g.fillStyle = fr===0 ? (live?"#F2EFE6":"#C9C4B6") : (live?"#E9A63C":"#B9832C");
+          rr(cx-BW/2, y0, BW, Math.max(4,y1-y0), 5);
+          if(y1-y0>18){
+            g.fillStyle="#1A1206"; g.font="700 13px Archivo, sans-serif";
+            g.textAlign="center"; g.textBaseline="middle";
+            g.fillText(fr, cx, y1-11);
+          }
+        });
+
+        if(e.label && bot>0 && bot<HIT+30){
+          g.fillStyle= live?"#F2EFE6":"#7E8C87";
+          g.font="700 12px 'Noto Sans TC', sans-serif";
+          g.textAlign="left"; g.textBaseline="alphabetic";
+          g.fillText(e.label, 4, Math.min(bot-5, HIT-5));
+        }
+        if(e.dir && bot>0 && bot<HIT+20){
+          g.fillStyle= live?"#E9A63C":"#5A6864";
+          g.font="700 15px Archivo, sans-serif"; g.textAlign="right";
+          g.fillText(e.dir==="D"?"↓":"↑", W-5, Math.min(bot-5, HIT-5));
+        }
+      });
+    }
+
+    // 判定線
+    g.strokeStyle="#E9A63C"; g.lineWidth=2;
+    g.beginPath(); g.moveTo(0,HIT); g.lineTo(W,HIT); g.stroke();
+
+    // 弦名腳座
+    var SN=["E","A","D","G","B","e"];
+    g.fillStyle="#1A2523"; g.fillRect(0,HIT+2,W,FOOT-2);
+    for(var s2=0;s2<6;s2++){
+      g.strokeStyle="#2E3E3A"; g.lineWidth=3.4-s2*0.42;
+      g.beginPath(); g.moveTo(laneX(s2),HIT+4); g.lineTo(laneX(s2),HIT+40); g.stroke();
+      g.fillStyle="#7E8C87"; g.font="700 12px Archivo, sans-serif";
+      g.textAlign="center"; g.textBaseline="alphabetic";
+      g.fillText(SN[s2], laneX(s2), HIT+58);
+      g.fillStyle="#4E5C58"; g.font="500 9px 'Noto Sans TC', sans-serif";
+      g.fillText("第"+(6-s2)+"弦", laneX(s2), HIT+70);
+    }
+
+    if(S.running) raf=requestAnimationFrame(loop);
+  }
+
+  /* ---------- 引擎 ---------- */
+  var raf=null,timer=null,schedBeat=0;
+
+  function schedule(){
+    var x=X(), sp=spb();
+    while(schedBeat*sp < ctx.currentTime-startT+0.3){
+      var t0=startT+schedBeat*sp;
+      if(t0>ctx.currentTime) click(t0, schedBeat%4===0);
+      schedBeat++;
+    }
+    // 事件音（示範）
+    if(S.demo!=="on") return;
+    var loopSec=x.len*sp;
+    x.e.forEach(function(e){
+      for(var rep=0;rep<3;rep++){
+        var et=startT+e.b*sp+rep*loopSec;
+        if(et>ctx.currentTime && et<ctx.currentTime+0.3 && !e._p_[rep]){
+          e._p_[rep]=true; playEv(e,et);
+        }
+      }
+    });
+  }
+
+  function listen(){
+    if(!an) return;
+    an.getFloatTimeDomainData(mbuf);
+    var d=detect(mbuf,ctx.sampleRate), now=ctx.currentTime;
+    if(d.rms>0.02 && d.rms>prevRms*1.7 && now-lastOn>0.1){
+      lastOn=now;
+      var x=X(), sp=spb(), loopSec=x.len*sp;
+      var lt=(((now-startT)%loopSec)+loopSec)%loopSec;
+      var best=1e9, bestEv=null;
+      x.e.forEach(function(e){
+        var dt=lt-e.b*sp;
+        if(dt>loopSec/2) dt-=loopSec;
+        if(dt<-loopSec/2) dt+=loopSec;
+        if(Math.abs(dt)<Math.abs(best)){ best=dt; bestEv=e; }
+      });
+      offsets.push(best*1000);
+      if(offsets.length>16) offsets.shift();
+
+      lastMsg="";
+      if(bestEv && !bestEv.poly && d.freq){
+        var si=bestEv.frets.findIndex(function(f){ return f!==null; });
+        var want=OPEN[si]+bestEv.frets[si];
+        var got=Math.round(ftom(d.freq));
+        if(got===want) lastMsg="第"+(6-si)+"弦 對";
+        else lastMsg="第"+(6-si)+"弦 應該是 "+NAMES[want%12]+
+             ",聽到 "+NAMES[((got%12)+12)%12];
+      }
+      paintFb();
+    }
+    prevRms=prevRms*0.6+d.rms*0.4;
+  }
+
+  function paintFb(){
+    var f=$("fb");
+    if(S.mic!=="on"){
+      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">'+
+        '打開「聽我彈」可以看到你刷早了還是晚了。需要 HTTPS 環境。<br>'+
+        '沒有麥克風也能練——掉落塊本身的價值是<b>提前看到手要移到哪裡</b>。</p>';
+      return;
+    }
+    if(!offsets.length){
+      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">開始彈,這裡會顯示時間差。</p>';
+      return;
+    }
+    var avg=offsets.reduce(function(a,b){return a+b;},0)/offsets.length;
+    var sd=Math.sqrt(offsets.reduce(function(a,b){return a+(b-avg)*(b-avg);},0)/offsets.length);
+    var ac=Math.abs(avg)<30?"ok":(Math.abs(avg)<70?"off":"bad");
+    var sc=sd<35?"ok":(sd<70?"off":"bad");
+    var extra = lastMsg
+      ? '<div class="fbrow"><span class="fblab">音準</span><span class="fbval '+
+        (lastMsg.indexOf("對")>0?"ok":"bad")+'" style="font-size:13px">'+lastMsg+'</span></div>'
+      : "";
+    f.innerHTML=
+      '<div class="fbrow"><span class="fblab">平均時間差</span>'+
+      '<span class="fbval '+ac+'">'+(avg>0?"+":"")+Math.round(avg)+' ms</span></div>'+
+      '<div class="fbrow"><span class="fblab">穩定度（越小越穩）</span>'+
+      '<span class="fbval '+sc+'">±'+Math.round(sd)+' ms</span></div>'+extra+
+      '<p class="fbnote">'+
+      (Math.abs(avg)<30?"時間差很小,這樣就對了。":
+       avg>0?"你平均慢了。多半是換和弦來不及——降速,先求乾淨。":
+             "你平均快了。刷弦搶在拍子前面,跟著節拍等一下。")+
+      (X().e[0].poly?'<br>整個和弦一起刷時<b>只判斷時機</b>,不判斷哪條弦悶掉。要驗乾不乾淨用逐弦檢查,或練分解和弦。'
+                    :'<br>單音模式,每一條弦都會判斷音準。')+
+      '</p>';
+  }
+
+  /* ---------- 控制 ---------- */
+  function loop(){
+    if(!S.running) return;
+    draw(ctx.currentTime);
+    if(S.mic==="on") listen();
+  }
+  function resetPlayed(){ X().e.forEach(function(e){ e._p_=[false,false,false]; }); }
+  function start(){
+    A(); S.running=true;
+    $("run").textContent="停止"; $("run").classList.add("on");
+    startT=ctx.currentTime+leadSec(); schedBeat=0;
+    offsets=[]; prevRms=0; lastOn=-1; lastMsg=""; resetPlayed();
+    timer=setInterval(schedule,40);
+    raf=requestAnimationFrame(loop);
+    paintFb();
+  }
+  function stop(){
+    S.running=false;
+    $("run").textContent="開始"; $("run").classList.remove("on");
+    clearInterval(timer); cancelAnimationFrame(raf); draw(0);
+  }
+  function restart(){ if(S.running){ stop(); start(); } else draw(0); }
+
+  $("run").addEventListener("click",function(){ S.running?stop():start(); });
+  document.addEventListener("keydown",function(e){
+    if(e.code==="Space"&&e.target.tagName!=="BUTTON"&&e.target.tagName!=="SELECT"){
+      e.preventDefault(); S.running?stop():start();
+    }
+  });
+
+  function setSeg(id,v){
+    Array.prototype.forEach.call($(id).children,function(x){
+      x.setAttribute("aria-pressed", x.dataset.v===v?"true":"false");
+    });
+  }
+  function seg(id,fn){
+    $(id).addEventListener("click",function(e){
+      var b=e.target.closest("button"); if(!b) return;
+      setSeg(id,b.dataset.v); fn(b.dataset.v);
+    });
+  }
+  seg("lead",function(v){ S.lead=parseInt(v,10); restart(); });
+  seg("demo",function(v){ S.demo=v; });
+  seg("micseg",function(v){ S.mic=v; v==="on"?micOn():micOff(); paintFb(); });
+
+  $("bu").addEventListener("click",function(){ S.bpm=Math.min(120,S.bpm+2); $("bv").textContent=S.bpm; restart(); });
+  $("bd").addEventListener("click",function(){ S.bpm=Math.max(30,S.bpm-2); $("bv").textContent=S.bpm; restart(); });
+
+  var sel=$("ex");
+  Object.keys(EX).forEach(function(k){
+    EX[k].e.forEach(function(e){ e._p_=[false,false,false]; });
+    var o=document.createElement("option"); o.value=k; o.textContent=EX[k].name;
+    if(k===S.ex) o.selected=true; sel.appendChild(o);
+  });
+  sel.addEventListener("change",function(){ S.ex=sel.value; paintMeta(); paintFb(); restart(); });
+
+  function paintMeta(){ $("meta").textContent=X().len+" 拍循環　·　"+X().note; }
+
+  paintMeta(); paintFb(); draw(0);
+  if(insecure()){
+    $("gate").innerHTML='<div class="err">目前是 <code>file://</code> 環境,'+
+      '「聽我彈」不能用。掉落塊與示範音正常。</div>';
+  }
+})();
+</script>
+</body>
+</html>

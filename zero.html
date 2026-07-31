@@ -325,16 +325,7 @@
 
   /* ================= 繪製 ================= */
 
-  /* 預設樂器由 index.html 的「今天練什麼」透過 ?inst= 帶進來 */
-  var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";
-
-  function syncInst(){
-    Array.prototype.forEach.call($("inst").children, function(x){
-      x.setAttribute("aria-pressed", x.dataset.v === inst ? "true" : "false");
-    });
-    var back = document.querySelector(".mp-back");
-    if(back) back.href = "index.html" + (inst === "piano" ? "?inst=piano" : "");
-  }
+  var inst = "guitar";
 
   function render(){
     var steps = inst === "guitar" ? GUITAR : PIANO;
@@ -422,11 +413,12 @@
     var b = e.target.closest("button");
     if(!b) return;
     inst = b.dataset.v;
-    syncInst();
+    Array.prototype.forEach.call(this.children, function(x){
+      x.setAttribute("aria-pressed", x === b ? "true":"false");
+    });
     render();
   });
 
-  syncInst();
   render();
 })();
 </script>

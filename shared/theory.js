@@ -37,7 +37,7 @@
   var FLAT_KEYS = { "F":1, "Bb":1, "Eb":1, "Ab":1, "Db":1, "Gb":1 };
 
   /* 介面上提供的十二個 key，用實務上常見的拼法 */
-  var KEYS = ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+  var KEYS = ["C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 
   var MAJOR_SCALE = [0,2,4,5,7,9,11];
   var DIATONIC_QUALITIES = ["", "m", "m", "", "", "m", "dim"];
@@ -86,11 +86,30 @@
     });
   }
 
-  function chordForDegree(key, degree){
-    var i = DEGREES.indexOf(degree);
-    if(i < 0) return "";
+  /* 級數 token → 和弦名。
+     "5" → G（key of C）
+     "6m" → Am，"5sus4" → Gsus4：級數後面明寫品質時，
+     取順階和弦的根音再換上指定的品質。
+     回傳 ok:false 代表這個 token 看不懂，呼叫端可以標紅。 */
+  function degreeToChord(token, key){
+    var raw = String(token == null ? "" : token).trim();
+    var m = /^([1-7])(.*)$/.exec(raw);
+    if(!m) return { text:raw, ok:false };
+
     var list = getDiatonicChords(key);
-    return list ? list[i] : "";
+    if(!list) return { text:raw, ok:false };
+
+    var base = list[parseInt(m[1], 10) - 1];
+    if(m[2]){
+      var rootOnly = base.replace(/(m|dim)$/, "");
+      return { text: rootOnly + m[2], ok:true, degree: raw };
+    }
+    return { text: base, ok:true, degree: raw };
+  }
+
+  function chordForDegree(key, degree){
+    var r = degreeToChord(degree, key);
+    return r.ok ? r.text : "";
   }
 
   function capoSuggestions(key, maxCapo){
@@ -147,6 +166,7 @@
     noteNames: noteNames,
     rootSemitone: rootSemitone,
     getDiatonicChords: getDiatonicChords,
+    degreeToChord: degreeToChord,
     chordForDegree: chordForDegree,
     capoSuggestions: capoSuggestions,
     parseChordToken: parseChordToken

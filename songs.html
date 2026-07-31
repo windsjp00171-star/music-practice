@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的曲目</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--ink); color:var(--paper);
+        font-family:"Noto Sans TC", system-ui, sans-serif;
+        -webkit-font-smoothing:antialiased; padding-bottom:44px; }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 15px; }
+
+  header{ padding:18px 0 13px; border-bottom:1px solid var(--line); }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  header p{ font-size:12px; color:var(--dim); margin-top:6px; line-height:1.7; }
+
+  .local{
+    background:rgba(95,191,143,.09); border-left:2px solid var(--good);
+    border-radius:0 7px 7px 0; padding:11px 13px; margin-top:14px;
+    font-size:12.5px; line-height:1.75; color:#D6E8DF;
+  }
+  .local b{ color:var(--good); font-weight:700; }
+  .local code{ font-family:"Archivo",monospace; background:rgba(0,0,0,.25);
+               padding:1px 5px; border-radius:3px; }
+
+  .card{ background:var(--ink-2); border:1px solid var(--line);
+         border-radius:12px; padding:16px; margin-top:12px; }
+  h2{ font-size:14px; font-weight:700; margin-bottom:10px; }
+
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:11.5px; color:var(--dim);
+                letter-spacing:.08em; margin-bottom:6px; }
+  input[type=text], textarea, select{
+    width:100%; background:var(--ink-3); color:var(--paper);
+    border:1px solid var(--line); border-radius:8px; padding:9px 11px;
+    font-family:inherit; font-size:13.5px;
+  }
+  textarea{ min-height:64px; resize:vertical; font-family:"Archivo",monospace;
+            letter-spacing:.03em; line-height:1.7; }
+  input:focus, textarea:focus, select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .grid2{ display:flex; gap:11px; flex-wrap:wrap; }
+  .grid2 > .field{ flex:1 1 130px; margin-bottom:12px; }
+
+  .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button{ flex:1; background:transparent; color:var(--dim); border:none;
+               border-right:1px solid var(--line); padding:9px 8px; font-size:12.5px;
+               cursor:pointer; font-family:inherit; }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .hint{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-top:6px; }
+  .hint code{ font-family:"Archivo",monospace; color:var(--paper); }
+
+  .bars{ display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-top:12px; }
+  .bar{ border:1px solid var(--line); border-radius:7px; padding:9px 3px;
+        text-align:center; font-family:"Archivo",sans-serif; font-weight:700;
+        font-size:14px; color:var(--paper); }
+  .bar.bad{ border-color:var(--bad); color:var(--bad); }
+  .bar small{ display:block; font-size:9.5px; color:var(--dim); font-weight:600; margin-top:2px; }
+
+  .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .btn{ background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+        padding:10px 17px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  .btn.alt{ background:transparent; color:var(--dim); border:1px solid var(--line); font-weight:500; }
+  .btn.alt:hover{ color:var(--paper); border-color:var(--dim); }
+  .btn.danger{ background:transparent; color:var(--bad); border:1px solid var(--line); font-weight:500; }
+  .btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .song{ display:flex; align-items:center; gap:11px; border:1px solid var(--line);
+         border-radius:9px; padding:11px 13px; margin-bottom:7px; }
+  .song .t{ flex:1 1 auto; font-size:14px; font-weight:500; }
+  .song .m{ font-size:11px; color:var(--dim); margin-top:3px; }
+  .song button{ background:transparent; border:1px solid var(--line); color:var(--dim);
+                border-radius:7px; padding:6px 11px; font-size:12px; cursor:pointer;
+                font-family:inherit; }
+  .song button:hover{ color:var(--paper); border-color:var(--dim); }
+  .empty{ font-size:12.5px; color:var(--dim); line-height:1.7; }
+  .status{ font-size:11.5px; color:var(--dim); margin-top:12px; display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <h1>我的曲目</h1>
+    <p>自己輸入和弦譜,存在這台裝置上。用級數輸入的話,任何 key 都能彈。</p>
+  </header>
+
+  <div class="local">
+    <b>只存在本機。</b>這些資料存在瀏覽器裡,不會進 repo、不會上傳、不會被部署出去。
+    交接給 Claude Code 時,對應的 <code>songs-local.js</code> 要寫進 <code>.gitignore</code>。
+  </div>
+
+  <div class="card">
+    <h2 id="formTitle">新增曲目</h2>
+
+    <div class="field">
+      <label for="title">曲名</label>
+      <input type="text" id="title" placeholder="例如：主愛滿溢（我們團的版本）">
+    </div>
+
+    <div class="field">
+      <label>輸入方式</label>
+      <div class="seg" id="mode">
+        <button type="button" data-v="degree" aria-pressed="true">級數（可換 key）</button>
+        <button type="button" data-v="chord"  aria-pressed="false">和弦名</button>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field" id="keyField">
+        <label for="key">Key</label>
+        <select id="key"></select>
+      </div>
+      <div class="field">
+        <label for="beats">拍號</label>
+        <select id="beats">
+          <option value="4">4/4</option>
+          <option value="3">3/4</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="bars">小節（一個空格一小節）</label>
+      <textarea id="bars" placeholder="1 1 4 5&#10;6m 4 1 5"></textarea>
+      <p class="hint" id="hint"></p>
+    </div>
+
+    <div class="bars" id="preview"></div>
+
+    <div class="btnrow">
+      <button class="btn" id="save" type="button">儲存</button>
+      <button class="btn alt" id="cancel" type="button">清空</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>已存曲目</h2>
+    <div id="list"></div>
+    <div class="btnrow">
+      <button class="btn alt" id="exp" type="button">匯出備份</button>
+      <button class="btn alt" id="imp" type="button">匯入</button>
+    </div>
+    <span class="status" id="status">載入中…</span>
+  </div>
+
+</div>
+
+<script src="shared/theory.js"></script>
+<script src="shared/store.js"></script>
+<script>
+(function(){
+  "use strict";
+  if(!window.MP||!MP.theory||!MP.store){ document.body.innerHTML='<p style="max-width:620px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/theory.js 與 shared/store.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>'; return; }
+
+  var KEY=MP.store.KEYS.songs;
+  var $=function(id){ return document.getElementById(id); };
+
+  /* 樂理計算在 shared/theory.js（同一份演算法，含升降記號偏好） */
+  var KEYS=MP.theory.KEYS;
+
+  var state={ songs:[], editing:null, mode:"degree" };
+  var timer=null;
+
+  /* ---------- 儲存 ---------- */
+  function save(){
+    clearTimeout(timer);
+    timer=setTimeout(function(){
+      if(!MP.store.available()){ $("status").textContent="此環境無法儲存，離開後會清空"; return; }
+      MP.store.set(KEY, state.songs)
+        .then(function(){ $("status").textContent="已儲存 "+state.songs.length+" 首"; })
+        .catch(function(){ $("status").textContent="儲存失敗"; });
+    },350);
+  }
+  function load(){
+    if(!MP.store.available()){ $("status").textContent="此環境無法儲存，離開後會清空"; paintList(); return; }
+    MP.store.get(KEY).then(function(v){
+      state.songs = v || [];
+      $("status").textContent="已儲存 "+state.songs.length+" 首"; paintList();
+    }).catch(function(){ state.songs=[]; $("status").textContent="尚未有曲目"; paintList(); });
+  }
+
+  /* ---------- 解析與預覽 ---------- */
+  function tokens(){
+    return $("bars").value.replace(/\|/g," ").split(/\s+/).filter(function(x){ return x; });
+  }
+  function resolve(tok, key){
+    if(state.mode==="chord") return { text:tok, ok:true };
+    var m=/^([1-7])(.*)$/.exec(tok);
+    if(!m) return { text:tok, ok:false };
+    var r=MP.theory.degreeToChord(tok, key);
+    return { text:r.text, ok:r.ok, sub:r.ok?tok:undefined };
+  }
+  function paintPreview(){
+    var p=$("preview"); p.innerHTML="";
+    var key=$("key").value, ts=tokens();
+    ts.forEach(function(t){
+      var r=resolve(t,key);
+      var d=document.createElement("div");
+      d.className="bar"+(r.ok?"":" bad");
+      d.innerHTML=r.text+(r.sub?"<small>"+r.sub+"</small>":"");
+      p.appendChild(d);
+    });
+    $("hint").innerHTML = state.mode==="degree"
+      ? "用數字：<code>1 4 5 1</code>。要指定品質就寫全：<code>6m 4 1 5sus4</code>。"+
+        "改上面的 Key 就整首移調。"
+      : "直接寫和弦名：<code>G C D G</code>。這種方式不能自動換 key。";
+  }
+
+  /* ---------- 表單 ---------- */
+  function setMode(v){
+    state.mode=v;
+    Array.prototype.forEach.call($("mode").children,function(x){
+      x.setAttribute("aria-pressed", x.dataset.v===v?"true":"false");
+    });
+    $("keyField").style.opacity = v==="degree" ? "1" : "0.5";
+    paintPreview();
+  }
+  function clearForm(){
+    state.editing=null;
+    $("formTitle").textContent="新增曲目";
+    $("title").value=""; $("bars").value="";
+    $("key").value="G"; $("beats").value="4";
+    setMode("degree"); paintPreview();
+  }
+  function edit(id){
+    var s=state.songs.find(function(x){ return x.id===id; });
+    if(!s) return;
+    state.editing=id;
+    $("formTitle").textContent="編輯曲目";
+    $("title").value=s.title;
+    $("bars").value=s.bars.join(" ");
+    $("key").value=s.key; $("beats").value=String(s.beats);
+    setMode(s.mode);
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+  $("save").addEventListener("click",function(){
+    var t=$("title").value.trim(), ts=tokens();
+    if(!t){ alert("請填曲名"); return; }
+    if(!ts.length){ alert("請至少填一個小節"); return; }
+    var rec={ id: state.editing || ("s"+Date.now()),
+      title:t, mode:state.mode, key:$("key").value,
+      beats:parseInt($("beats").value,10), bars:ts };
+    if(state.editing){
+      var i=state.songs.findIndex(function(x){ return x.id===state.editing; });
+      state.songs[i]=rec;
+    } else state.songs.push(rec);
+    save(); paintList(); clearForm();
+  });
+  $("cancel").addEventListener("click",clearForm);
+
+  /* ---------- 清單 ---------- */
+  function paintList(){
+    var l=$("list"); l.innerHTML="";
+    if(!state.songs.length){
+      l.innerHTML='<p class="empty">還沒有曲目。上面填一首試試——'+
+        '先從一首你自己想彈的開始,用級數輸入,之後換 key 不用重寫。</p>';
+      return;
+    }
+    state.songs.forEach(function(s){
+      var d=document.createElement("div"); d.className="song";
+      var info=document.createElement("div"); info.className="t";
+      info.innerHTML=s.title+'<div class="m">'+
+        (s.mode==="degree"?"級數 · key of "+s.key:"和弦名")+
+        "　"+s.beats+"/4　"+s.bars.length+" 小節</div>";
+      var be=document.createElement("button"); be.textContent="編輯";
+      be.addEventListener("click",function(){ edit(s.id); });
+      var bd=document.createElement("button"); bd.textContent="刪除";
+      bd.addEventListener("click",function(){
+        if(!confirm("刪除「"+s.title+"」?")) return;
+        state.songs=state.songs.filter(function(x){ return x.id!==s.id; });
+        save(); paintList();
+      });
+      d.appendChild(info); d.appendChild(be); d.appendChild(bd);
+      l.appendChild(d);
+    });
+  }
+
+  /* ---------- 匯出入 ---------- */
+  $("exp").addEventListener("click",function(){
+    var blob=new Blob([JSON.stringify(state.songs,null,2)],{type:"application/json"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="songs-local.json";
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+  $("imp").addEventListener("click",function(){
+    var txt=prompt("貼上先前匯出的 JSON：");
+    if(!txt) return;
+    try{
+      var arr=JSON.parse(txt);
+      if(!Array.isArray(arr)) throw 0;
+      state.songs=state.songs.concat(arr);
+      save(); paintList();
+    }catch(e){ alert("格式不對,要是匯出時的 JSON 陣列。"); }
+  });
+
+  /* ---------- 啟動 ---------- */
+  KEYS.forEach(function(k){
+    var o=document.createElement("option"); o.value=k; o.textContent=k;
+    if(k==="G") o.selected=true; $("key").appendChild(o);
+  });
+  $("mode").addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(b) setMode(b.dataset.v);
+  });
+  $("bars").addEventListener("input",paintPreview);
+  $("key").addEventListener("change",paintPreview);
+
+  setMode("degree"); paintPreview(); load();
+})();
+</script>
+</body>
+</html>

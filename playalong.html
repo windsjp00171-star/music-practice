@@ -151,9 +151,8 @@
       <div class="field">
         <label>伴奏</label>
         <div class="seg" id="back">
-          <button type="button" data-v="click"  aria-pressed="true">只有節拍</button>
-          <button type="button" data-v="guitar" aria-pressed="false">吉他</button>
-          <button type="button" data-v="piano"  aria-pressed="false">鋼琴</button>
+          <button type="button" data-v="click" aria-pressed="true">只有節拍</button>
+          <button type="button" data-v="chord" aria-pressed="false">加和弦</button>
         </div>
       </div>
       <div class="field">
@@ -169,31 +168,20 @@
 
 </div>
 
-<script src="shared/chords.js"></script>
-<script src="shared/pitch.js"></script>
-<script src="shared/audio.js"></script>
 <script>
 (function(){
   "use strict";
   var $=function(id){ return document.getElementById(id); };
 
-  if(!window.MP || !MP.chords || !MP.pitch || !MP.audio){
-    document.body.innerHTML = '<p style="max-width:640px;margin:48px auto;padding:0 16px;'+
-      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
-      '共用檔案載入失敗（需要 shared/chords.js、shared/pitch.js、shared/audio.js）。'+
-      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
-    return;
-  }
-
   /* ---------- 曲目 ---------- */
-  // 和弦骨架，非演奏編曲。聖詩皆為公有領域（1929 年前）。
+  // 和弦骨架，非演奏編曲。所收曲目皆為公有領域（1929 年前）。
   var SONGS={
     "prog145":  { name:"進行 1–4–5（最基本）", key:"G", beats:4,
       bars:["G","G","C","C","D","D","G","G"],
-      note:"級數 1–4–5。學會這三個和弦就能伴很多詩歌。" },
+      note:"級數 1–4–5。學會這三個和弦就能伴很多歌。" },
     "prog1564": { name:"進行 1–5–6m–4（最常用）", key:"G", beats:4,
       bars:["G","D","Em","C","G","D","Em","C"],
-      note:"現代敬拜歌最常見的進行。四個和弦循環。" },
+      note:"現代流行歌最常見的進行，四個和弦循環。" },
     "prog6415": { name:"進行 6m–4–1–5", key:"G", beats:4,
       bars:["Em","C","G","D","Em","C","G","D"],
       note:"同樣四個和弦，換起點，情緒完全不同。" },
@@ -221,107 +209,86 @@
     if(ctx.state==="suspended") ctx.resume();
     return ctx;
   }
-  var mtof=MP.pitch.mtof, ftom=MP.pitch.ftom;
+  function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
+  function ftom(f){ return 12*Math.log2(f/440)+69; }
 
   function click(t,down){
-    MP.audio.click(ctx,out,t,down,{ gainDown:0.34, gainUp:0.17 });
+    var o=ctx.createOscillator(), g=ctx.createGain();
+    o.frequency.value=down?1550:920;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(down?0.34:0.17,t+0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.045);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t+0.06);
   }
 
-  /* 鋼琴音色改成先算取樣緩衝再播（shared/audio.js，參數移植自 PitchPal）。
-     CHORD_GAIN 把單音壓到四個音同時響也不爆掉。 */
-  var PIANO_GAIN=0.15,  PIANO_SPREAD=0.012;
-  var GUITAR_GAIN=0.13, GUITAR_SPREAD=0.028;   // 吉他要慢一點才像刷弦
-
-  /* 緩衝要快取。schedule() 只提前 0.12 秒排程，
-     如果每小節都重算三秒長的緩衝會來不及，聲音會斷。 */
-  var chordCache={};
-
-  function pianoBuffers(name,dur){
-    var k="p:"+name+"@"+dur.toFixed(3);
-    if(!chordCache[k]){
-      chordCache[k]=CHORD[name].map(function(m){
-        return MP.audio.pianoBuffer(ctx,mtof(m),dur);
-      });
-    }
-    return chordCache[k];
+  // 鋼琴泛音參數移植自 PitchPal jianpu._tone_piano
+  var HARM=[[1,1.00,3.0],[2,0.60,5.0],[3,0.25,8.0],[4,0.10,12.0],[5,0.04,18.0]];
+  function tone(freq,t,dur,v){
+    HARM.forEach(function(h){
+      var o=ctx.createOscillator(), g=ctx.createGain();
+      o.type="sine"; o.frequency.value=freq*h[0];
+      var amp=v*h[1];
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(Math.max(amp,0.0002),t+0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur*(3.0/h[2]));
+      o.connect(g); g.connect(out); o.start(t); o.stop(t+dur+0.08);
+    });
   }
-
-  /* 吉他伴奏用的是 shared/chords.js 裡真正的開放和弦指型，
-     跟 fingering.html 教的同一組 —— 聽到的就是你手上要按的那個。 */
-  function guitarBuffers(name,dur){
-    var shape=MP.chords.GUITAR_SHAPES[name];
-    if(!shape) return null;
-    var k="g:"+name+"@"+dur.toFixed(3);
-    if(!chordCache[k]){
-      var tuning=MP.chords.GUITAR_TUNING, list=[];
-      shape.frets.forEach(function(fr,s){
-        if(fr===null) return;                     // 這條弦不彈
-        list.push(MP.audio.guitarBuffer(ctx,mtof(tuning[s]+fr),dur));
-      });
-      chordCache[k]=list;
-    }
-    return chordCache[k];
-  }
-
   function playChord(name,t,dur){
-    if(!CHORD[name]) return;
-
-    if(S.back==="guitar"){
-      var gb=guitarBuffers(name,dur);
-      if(gb){
-        gb.forEach(function(bf,i){
-          MP.audio.playBuffer(ctx,out,bf,t+i*GUITAR_SPREAD,
-            { cutoff:MP.audio.LOWPASS.guitar, gain:GUITAR_GAIN });
-        });
-        return;
-      }
-      // 沒有這個和弦的吉他指型就退回鋼琴，不要變成無聲
-    }
-
-    pianoBuffers(name,dur).forEach(function(bf,i){
-      MP.audio.playBuffer(ctx,out,bf,t+i*PIANO_SPREAD,
-        { cutoff:MP.audio.LOWPASS.piano, gain:PIANO_GAIN });
-    });
-  }
-
-  /* 開始前先把這首用到的和弦算好，避免第一小節卡住 */
-  function warmChords(){
-    if(!ctx || S.back==="click") return;      // 還沒建立音訊環境就先不算
-    var sg=song(), dur=(60/S.bpm)*sg.beats*0.92, seen={};
-    sg.bars.forEach(function(n){
-      if(seen[n] || !CHORD[n]) return;
-      seen[n]=1;
-      if(S.back==="guitar" && guitarBuffers(n,dur)) return;
-      pianoBuffers(n,dur);
-    });
+    var ns=CHORD[name]; if(!ns) return;
+    ns.forEach(function(m,i){ tone(mtof(m),t+i*0.012,dur,0.055); });
   }
 
   /* ---------- 麥克風 ---------- */
-  var mic=null, an=null, mbuf=null;
-  var insecure=MP.pitch.isInsecure;
-
+  var an=null, mbuf=null, stream=null;
+  function insecure(){
+    return !(window.isSecureContext||location.protocol==="https:"||
+             location.hostname==="localhost"||location.hostname==="127.0.0.1");
+  }
   function micOn(){
-    A();
-    MP.pitch.requestMic({ ctx:ctx }).then(function(handle){
-      mic=handle; an=handle.analyser; mbuf=handle.buf;
+    if(insecure()){
+      $("gate").innerHTML='<div class="err"><b>這個環境拿不到麥克風。</b>'+
+        '瀏覽器只允許 <code>https://</code> 或 <code>localhost</code> 存取麥克風，'+
+        '<code>file://</code> 不行。要用「聽我彈」，這包檔案需放到 HTTPS 靜態主機。</div>';
+      setMic("off"); return;
+    }
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,
+      noiseSuppression:false, autoGainControl:false}}).then(function(s){
+      A(); stream=s;
+      var src=ctx.createMediaStreamSource(s);
+      an=ctx.createAnalyser(); an.fftSize=2048;
+      mbuf=new Float32Array(an.fftSize);
+      src.connect(an);
       $("gate").innerHTML="";
-    }).catch(function(e){
-      $("gate").innerHTML = e.code==="insecure"
-        ? '<div class="err"><b>這個環境拿不到麥克風。</b>'+
-          '瀏覽器只允許 <code>https://</code> 或 <code>localhost</code> 存取麥克風，'+
-          '<code>file://</code> 不行。要用「聽我彈」，這包檔案需放到 HTTPS 靜態主機。</div>'
-        : '<div class="err"><b>麥克風被拒絕。</b>'+
-          '在網址列旁的權限設定裡允許麥克風後重試。</div>';
+    }).catch(function(){
+      $("gate").innerHTML='<div class="err"><b>麥克風被拒絕。</b>'+
+        '在網址列旁的權限設定裡允許麥克風後重試。</div>';
       setMic("off");
     });
   }
   function micOff(){
-    MP.pitch.releaseMic(mic);       // ctx 是共用的，releaseMic 不會關掉它
-    mic=null; an=null; mbuf=null; $("gate").innerHTML="";
+    if(stream) stream.getTracks().forEach(function(t){ t.stop(); });
+    stream=null; an=null; $("gate").innerHTML="";
   }
 
   function detect(buf,sr){
-    return MP.pitch.detect(buf,sr,{ minRms:0.012 });
+    var N=buf.length, rms=0;
+    for(var i=0;i<N;i++) rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/N);
+    if(rms<0.012) return {rms:rms,freq:null};
+    var loMin=Math.floor(sr/1100), loMax=Math.min(Math.floor(sr/68),Math.floor(N/2));
+    var best=-1,bl=-1,c=new Float32Array(loMax+2);
+    for(var lag=loMin;lag<=loMax;lag++){
+      var s=0; for(var j=0;j<N-lag;j++) s+=buf[j]*buf[j+lag];
+      s/=(N-lag); c[lag]=s;
+      if(s>best){ best=s; bl=lag; }
+    }
+    if(bl<0||best<=0) return {rms:rms,freq:null};
+    var x1=c[bl-1]||0,x2=c[bl],x3=c[bl+1]||0;
+    var a=(x1+x3-2*x2)/2,b=(x3-x1)/2,T=bl;
+    if(a!==0) T=bl-b/(2*a);
+    var f=sr/T;
+    return {rms:rms, freq:(f>=68&&f<=1100)?f:null};
   }
 
   /* ---------- 引擎 ---------- */
@@ -336,7 +303,7 @@
     var spb=60/S.bpm, sg=song();
     while(nextT<ctx.currentTime+0.12){
       click(nextT, sBeat===0);
-      if(S.back!=="click" && sBeat===0 && sBar>=0){
+      if(S.back==="chord" && sBeat===0 && sBar>=0){
         playChord(sg.bars[sBar%sg.bars.length], nextT, spb*sg.beats*0.92);
       }
       queue.push({t:nextT, beat:sBeat, bar:sBar, spb:spb});
@@ -460,7 +427,6 @@
 
   function start(){
     A();
-    warmChords();
     S.running=true;
     $("run").textContent="停止"; $("run").classList.add("on");
     sBeat=0; sBar=-1; queue.length=0; nextT=ctx.currentTime+0.15;
@@ -497,7 +463,7 @@
       fn(b.dataset.v);
     });
   }
-  seg("back",function(v){ S.back=v; warmChords(); });
+  seg("back",function(v){ S.back=v; });
   function setMic(v){
     S.mic=v;
     Array.prototype.forEach.call($("micseg").children,function(x){
@@ -528,12 +494,6 @@
     $("meta").textContent="Key of "+sg.key+"　"+sg.beats+"/4　"+
       sg.bars.length+" 小節　·　"+sg.note;
   }
-
-  /* 這個模組不分樂器（伴奏音色另外選），但要把 index.html 的選擇原樣帶回去 */
-  (function(){
-    var back=document.querySelector(".mp-back");
-    if(back) back.href="index.html"+location.search;
-  })();
 
   buildLamps(); paintMeta(); paintChart(); paintFeedback();
   if(insecure()){

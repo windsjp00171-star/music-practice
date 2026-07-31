@@ -114,6 +114,15 @@
   }
 
   /* 小節進度 */
+  .shapes{
+    display:flex; justify-content:center; align-items:center;
+    gap:clamp(14px,4vw,30px); min-height:158px; width:100%;
+  }
+  .shape{ text-align:center; }
+  .shape-cap{ font-size:10.5px; color:var(--dim); letter-spacing:.14em; margin-top:7px; }
+  .shape.ghost{ opacity:.45; }
+  .shapes svg{ display:block; }
+
   .track{
     width:min(560px, 88vw); height:3px;
     background:var(--ink-3); border-radius:2px; overflow:hidden;
@@ -182,21 +191,15 @@
   .chip:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
 
   .note{ font-size:12px; color:var(--dim); line-height:1.7; }
-  .note b{ color:var(--paper); font-weight:500; }
-
-  /* capo 建議 */
   .capo{ font-size:12px; color:var(--dim); line-height:1.8; }
   .capo b{ font-family:"Archivo",sans-serif; font-weight:700; color:var(--amber); }
   .capo .sh{ font-family:"Archivo",sans-serif; font-weight:700; color:var(--paper); }
-
-  select{
-    background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
-    border-radius:8px; padding:7px 10px; font-family:"Archivo",sans-serif;
-    font-weight:700; font-size:14px; cursor:pointer;
-  }
+  select{ background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+          border-radius:8px; padding:7px 10px; font-family:"Archivo",sans-serif;
+          font-weight:700; font-size:14px; cursor:pointer; }
   select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
-
   .topbar .mp-back{ margin:0; }
+  .note b{ color:var(--paper); font-weight:500; }
 
   .hidden{ display:none !important; }
 
@@ -236,6 +239,8 @@
       <div class="glyph" id="next">—</div>
     </div>
   </div>
+
+  <div class="shapes" id="shapes"></div>
 
   <div class="track"><span id="track"></span></div>
 </main>
@@ -281,6 +286,22 @@
       <select id="keySel"></select>
     </div>
 
+    <div class="field">
+      <label>按法</label>
+      <div class="seg" id="showseg">
+        <button type="button" data-v="always" aria-pressed="true">一直顯示</button>
+        <button type="button" data-v="pre" aria-pressed="false">換之前</button>
+        <button type="button" data-v="off" aria-pressed="false">關</button>
+      </div>
+    </div>
+
+    <div class="field" id="instField">
+      <div class="seg" id="instseg">
+        <button type="button" data-v="guitar" aria-pressed="true">吉他</button>
+        <button type="button" data-v="piano" aria-pressed="false">鋼琴</button>
+      </div>
+    </div>
+
     <div class="field hidden" id="revealField">
       <div class="seg" id="reveal">
         <button type="button" data-v="on" aria-pressed="false">顯示答案</button>
@@ -296,23 +317,20 @@
 
 <script src="shared/theory.js"></script>
 <script src="shared/audio.js"></script>
+<script src="shared/clock.js"></script>
 <script>
 (function(){
   "use strict";
 
-  if(!window.MP || !MP.theory || !MP.audio){
-    document.body.innerHTML = '<p style="max-width:620px;margin:48px auto;padding:0 16px;'+
-      'font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">'+
-      '共用檔案載入失敗（需要 shared/theory.js 與 shared/audio.js）。'+
-      '請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+  if(!window.MP||!MP.theory||!MP.audio||!MP.clock){
+    document.body.innerHTML='<p style="max-width:620px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/theory.js、shared/audio.js、shared/clock.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
     return;
   }
 
   var NAMES   = ["A","Am","B","Bm","C","D","Dm","E","Em","F","G"];
   var ON_INIT = ["A","D","E","Em","G"];
-
-  /* 級數 → 和弦不再硬寫對照表，改由 shared/theory.js 算，十二個 key 都對，
-     而且 F / Bb / Eb / Ab 這幾個 key 會用降記號書寫。 */
+  /* 級數 → 和弦改由 shared/theory.js 計算：十二個 key 都對，
+     F / Bb / Eb / Ab 用降記號，而且多了第七級。 */
   var DEGREES = MP.theory.DEGREES;
 
   var S = {
@@ -322,6 +340,8 @@
     mode: "name",
     key: "G",
     reveal: false,
+    show: "always",
+    inst: "guitar",
     on: { name: new Set(ON_INIT), degree: new Set(["1","4","5","6m"]) },
     running: false
   };
@@ -330,8 +350,9 @@
   var el = {
     run:$("run"), lamps:$("lamps"), now:$("now"), next:$("next"),
     answer:$("answer"), track:$("track"), bpmVal:$("bpmVal"),
-    pool:$("pool"), note:$("note"), capo:$("capo"),
-    keyField:$("keyField"), revealField:$("revealField"), keySel:$("keySel")
+    pool:$("pool"), note:$("note"),
+    keyField:$("keyField"), revealField:$("revealField"),
+    shapes:$("shapes"), instField:$("instField")
   };
 
   /* ---------- 顯示 ---------- */
@@ -343,6 +364,113 @@
     var d = /^(\d)(.*)$/.exec(token);
     if(d) return d[1] + (d[2] ? "<sup>"+d[2]+"</sup>" : "");
     return token;
+  }
+
+  var SVGNS="http://www.w3.org/2000/svg";
+  function mk(t,at){ var e=document.createElementNS(SVGNS,t);
+    for(var k in at) e.setAttribute(k,at[k]); return e; }
+  function svgText(x,y,v,size,fill){
+    var t=mk("text",{x:x,y:y,"text-anchor":"middle","font-family":"Archivo, sans-serif",
+      "font-size":size,"font-weight":700,fill:fill}); t.textContent=v; return t; }
+
+  // 吉他指型：低音 E → 高音 e。null=不彈, 0=空弦
+  var SHAPES = {
+    "A":  { f:[null,0,2,2,2,0],   g:[0,0,1,2,3,0] },
+    "Am": { f:[null,0,2,2,1,0],   g:[0,0,2,3,1,0] },
+    "B":  { f:[null,2,4,4,4,2],   g:[0,1,2,3,4,1], barre:{from:1,to:5,fret:2} },
+    "Bm": { f:[null,2,4,4,3,2],   g:[0,1,3,4,2,1], barre:{from:1,to:5,fret:2} },
+    "C":  { f:[null,3,2,0,1,0],   g:[0,3,2,0,1,0] },
+    "D":  { f:[null,null,0,2,3,2],g:[0,0,0,1,3,2] },
+    "Dm": { f:[null,null,0,2,3,1],g:[0,0,0,2,3,1] },
+    "E":  { f:[0,2,2,1,0,0],      g:[0,2,3,1,0,0] },
+    "Em": { f:[0,2,2,0,0,0],      g:[0,2,3,0,0,0] },
+    "F":  { f:[null,null,3,2,1,1],g:[0,0,3,2,1,1], barre:{from:4,to:5,fret:1} },
+    "G":  { f:[3,2,0,0,0,3],      g:[2,1,0,0,0,3] }
+  };
+  var ROOT={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+  function triad(name){
+    var m=/^([A-G])(#|b)?(m)?/.exec(name); if(!m) return null;
+    var r=ROOT[m[1]]+(m[2]==="#"?1:m[2]==="b"?-1:0);
+    var iv=m[3]?[0,3,7]:[0,4,7];
+    return iv.map(function(i){ return ((r+i)%12+12)%12; });
+  }
+
+  function fretboard(name){
+    var d=SHAPES[name]; if(!d) return null;
+    var SP=25,X0=15,Y0=34,FH=29,NF=4,W=X0*2+SP*5;
+    var svg=mk("svg",{viewBox:"0 0 "+W+" "+(Y0+FH*NF+10),width:W});
+    svg.appendChild(mk("rect",{x:X0-2,y:Y0-4,width:SP*5+4,height:4,fill:"var(--paper)",rx:1}));
+    for(var i=1;i<=NF;i++) svg.appendChild(mk("line",{x1:X0,y1:Y0+FH*i,x2:X0+SP*5,
+      y2:Y0+FH*i,stroke:"var(--line)","stroke-width":1.2}));
+    for(var j=0;j<6;j++) svg.appendChild(mk("line",{x1:X0+SP*j,y1:Y0,x2:X0+SP*j,
+      y2:Y0+FH*NF,stroke:"var(--line)","stroke-width":1.2}));
+    d.f.forEach(function(fr,si){
+      var x=X0+SP*si,y=Y0-13;
+      if(fr===null){
+        var gg=mk("g",{stroke:"var(--dim)","stroke-width":1.5,"stroke-linecap":"round"});
+        gg.appendChild(mk("line",{x1:x-4,y1:y-4,x2:x+4,y2:y+4}));
+        gg.appendChild(mk("line",{x1:x+4,y1:y-4,x2:x-4,y2:y+4}));
+        svg.appendChild(gg);
+      } else if(fr===0){
+        svg.appendChild(mk("circle",{cx:x,cy:y,r:4.5,fill:"none",
+          stroke:"var(--paper)","stroke-width":1.5}));
+      }
+    });
+    if(d.barre){ var br=d.barre;
+      svg.appendChild(mk("rect",{x:X0+SP*br.from-7,y:Y0+FH*(br.fret-1)+FH/2-7,
+        width:SP*(br.to-br.from)+14,height:14,rx:7,fill:"var(--paper)"})); }
+    d.f.forEach(function(fr,si){
+      if(!fr) return;
+      var inB=d.barre&&si>=d.barre.from&&si<=d.barre.to&&fr===d.barre.fret;
+      var cx=X0+SP*si, cy=Y0+FH*(fr-1)+FH/2;
+      if(!inB) svg.appendChild(mk("circle",{cx:cx,cy:cy,r:7.5,fill:"var(--paper)"}));
+      svg.appendChild(svgText(cx,cy+3.4,d.g[si],9.5,"var(--ink)"));
+    });
+    return svg;
+  }
+
+  var WPC=[0,2,4,5,7,9,11], BPREV={1:0,3:1,6:3,8:4,10:5};
+  function keyboard(name){
+    var pcs=triad(name); if(!pcs) return null;
+    var WW=17,WH=68,BW=11,BH=43,N=14,W=WW*N;
+    var svg=mk("svg",{viewBox:"0 0 "+W+" "+(WH+4),width:W});
+    var on={}; pcs.forEach(function(p){ on[p]=true; });
+    for(var i=0;i<N;i++){
+      var pc=WPC[i%7], hit=on[pc];
+      svg.appendChild(mk("rect",{x:i*WW,y:0,width:WW-1.3,height:WH,rx:2,
+        fill:hit?"var(--amber)":"var(--paper)"}));
+    }
+    for(var o=0;o<2;o++) [1,3,6,8,10].forEach(function(pc){
+      var idx=o*7+BPREV[pc];
+      svg.appendChild(mk("rect",{x:idx*WW+WW-BW/2,y:0,width:BW,height:BH,rx:1.6,
+        fill:on[pc]?"var(--amber)":"var(--ink)"}));
+    });
+    return svg;
+  }
+
+  function shapeFor(token){
+    if(!token) return null;
+    var name = S.mode==="degree" ? MP.theory.chordForDegree(S.key, token) : token;
+    if(!name) return null;
+    return { name:name, svg: S.inst==="guitar" ? fretboard(name) : keyboard(name) };
+  }
+
+  function paintShapes(cur,nxt,lastBar){
+    var box=el.shapes; if(!box) return;
+    box.innerHTML="";
+    if(S.show==="off") return;
+    var target = (S.show==="pre") ? (lastBar?nxt:null) : cur;
+    var ghost  = (S.show==="pre");
+    var r=shapeFor(target);
+    if(!r||!r.svg) return;
+    var d=document.createElement("div");
+    d.className="shape"+(ghost?" ghost":"");
+    d.appendChild(r.svg);
+    var c=document.createElement("div");
+    c.className="shape-cap";
+    c.textContent = ghost ? ("準備 "+r.name) : r.name;
+    d.appendChild(c);
+    box.appendChild(d);
   }
 
   function pool(){ return Array.from(S.on[S.mode]); }
@@ -403,33 +531,28 @@
     writeCapo();
   }
 
-  /* 級數模式下顯示 capo 建議：這個 key 可以用哪個開放和弦指型 + 夾第幾格 */
+  /* 級數模式下順便列出這個 key 的順階和弦與 capo 建議 */
   function writeCapo(){
-    el.capo.classList.toggle("hidden", S.mode !== "degree");
-    if(S.mode !== "degree") return;
-
-    var chords = MP.theory.getDiatonicChords(S.key) || [];
-    var caps = MP.theory.capoSuggestions(S.key);
-
-    var line = "key of " + S.key + " 順階和弦：<span class=\"sh\">" +
-               chords.join(" · ") + "</span>";
-
-    if(!caps.length){
-      line += "<br>吉他：這個 key 沒有 capo 七格內按得順的指型，只能硬按。";
-    } else {
-      line += "<br>吉他 capo 建議：" + caps.map(function(c){
-        return c.capo === 0
-          ? "<span class=\"sh\">"+c.shape+"</span> 型不用 capo"
-          : "<span class=\"sh\">"+c.shape+"</span> 型夾第 <b>"+c.capo+"</b> 格";
-      }).join(" · ");
-    }
-    el.capo.innerHTML = line;
+    var box=$("capo");
+    box.classList.toggle("hidden", S.mode!=="degree");
+    if(S.mode!=="degree") return;
+    var chords=MP.theory.getDiatonicChords(S.key)||[];
+    var caps=MP.theory.capoSuggestions(S.key);
+    box.innerHTML = "key of "+S.key+" 順階和弦：<span class=\"sh\">"+chords.join(" · ")+"</span>" +
+      (!caps.length
+        ? "<br>吉他：這個 key 沒有 capo 七格內按得順的指型，只能硬按。"
+        : "<br>吉他 capo 建議：" + caps.map(function(c){
+            return c.capo===0
+              ? "<span class=\"sh\">"+c.shape+"</span> 型不用 capo"
+              : "<span class=\"sh\">"+c.shape+"</span> 型夾第 <b>"+c.capo+"</b> 格";
+          }).join(" · "));
   }
 
-  function paint(cur, nxt){
+  function paint(cur, nxt, lastBar){
     el.now.innerHTML  = glyph(cur);
     el.next.innerHTML = glyph(nxt);
     el.answer.textContent = (S.reveal && S.mode === "degree") ? answerFor(cur) : "";
+    paintShapes(cur, nxt, !!lastBar);
   }
 
   /* ---------- 節拍引擎 ---------- */
@@ -478,7 +601,7 @@
       var q = queue.shift();
       view.beat = q.beat; view.base = q.base; view.at = q.t;
       view.spb = q.spb;  view.total = q.total;
-      paint(q.warm ? null : q.cur, q.nxt);
+      paint(q.warm ? null : q.cur, q.nxt, q.base >= (S.span - 1) / S.span);
       var lamps = el.lamps.children;
       for(var i=0;i<lamps.length;i++){
         lamps[i].className = "lamp" + (i === q.beat ? (q.beat === 0 ? " hot down" : " hot") : "");
@@ -573,15 +696,26 @@
   });
 
   MP.theory.KEYS.forEach(function(k){
-    var o = document.createElement("option");
-    o.value = k; o.textContent = k;
-    if(k === S.key) o.selected = true;
-    el.keySel.appendChild(o);
+    var o=document.createElement("option");
+    o.value=k; o.textContent=k;
+    if(k===S.key) o.selected=true;
+    $("keySel").appendChild(o);
   });
-  el.keySel.addEventListener("change", function(){
-    S.key = el.keySel.value;
+  $("keySel").addEventListener("change", function(){
+    S.key=$("keySel").value;
     writeNote();
-    if(S.reveal) paint(sCur, sNxt);
+    paint(null, null);
+  });
+
+  segment("showseg", function(v){
+    S.show = v;
+    el.instField.classList.toggle("hidden", v === "off");
+    if(!S.running) paint(null, null);
+  });
+
+  segment("instseg", function(v){
+    S.inst = v;
+    if(!S.running) paint(null, null);
   });
 
   $("reveal").addEventListener("click", function(e){
@@ -592,15 +726,9 @@
   });
 
   /* ---------- 啟動 ---------- */
-
-  /* 這個模組不分樂器，但要把 index.html 的選擇原樣帶回去，返回後才不會被重設 */
-  (function(){
-    var back=document.querySelector(".mp-back");
-    if(back) back.href="index.html"+location.search;
-  })();
-
   buildLamps();
   buildPool();
+  paint(null, null);
   writeNote();
   setBpm(70);
 })();

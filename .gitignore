@@ -5,3 +5,7 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 本機曲庫：使用者自行輸入的和弦譜，不進版控、不部署
+songs-local.js
+songs-local.json

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>掉落練習</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<script>
+/* tokens.css 載入失敗時的 inline fallback。值要與 shared/tokens.css 一致。 */
+(function(){
+  if(getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()) return;
+  var s=document.createElement("style");
+  s.textContent=":root{--ink:#121A18;--ink-2:#1A2523;--ink-3:#243230;--line:#2E3E3A;"+
+    "--paper:#F2EFE6;--dim:#7E8C87;--amber:#E9A63C;--good:#5FBF8F;--bad:#D8695E;--radius:10px}"+
+    ".mp-back{display:inline-block;margin:14px 0 0;font-size:12px;color:#7E8C87;text-decoration:none}";
+  document.head.appendChild(s);
+})();
+</script>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background:var(--ink); color:var(--paper);
+    font-family:"Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:40px;
+  }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 14px; }
+
+  header{ padding:16px 0 12px; border-bottom:1px solid var(--line);
+          display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  h1{ font-size:15px; font-weight:700; letter-spacing:.08em; }
+  .run{ background:var(--paper); color:var(--ink); border:none; border-radius:9px;
+        padding:10px 22px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+  .run.on{ background:var(--amber); color:#241703; }
+  .run:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+
+  .picker{ display:flex; align-items:center; gap:10px; margin:14px 0 6px; flex-wrap:wrap; }
+  .picker label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  select{ background:var(--ink-3); color:var(--paper); border:1px solid var(--line);
+          border-radius:8px; padding:8px 11px; font-family:inherit; font-size:13.5px; cursor:pointer; }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .meta{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-bottom:10px; }
+
+  canvas{ display:block; width:100%; border:1px solid var(--line);
+          border-radius:12px; background:var(--ink-2); }
+
+  .fb{ background:var(--ink-2); border:1px solid var(--line); border-radius:12px;
+       padding:14px 15px; margin-top:12px; }
+  .fbrow{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .fbrow:last-of-type{ margin-bottom:0; }
+  .fblab{ font-size:12px; color:var(--dim); }
+  .fbval{ font-family:"Archivo",sans-serif; font-weight:800; font-size:17px;
+          font-variant-numeric:tabular-nums; }
+  .fbval.ok{ color:var(--good); } .fbval.off{ color:var(--amber); } .fbval.bad{ color:var(--bad); }
+  .fbnote{ font-size:12px; color:var(--dim); line-height:1.7; margin-top:10px;
+           padding-top:10px; border-top:1px solid var(--line); }
+
+  .panel{ border-top:1px solid var(--line); margin-top:16px; padding-top:14px;
+          display:flex; flex-direction:column; gap:13px; }
+  .row{ display:flex; flex-wrap:wrap; align-items:center; gap:11px 20px; }
+  .field{ display:flex; align-items:center; gap:9px; }
+  .field > label{ font-size:11.5px; color:var(--dim); letter-spacing:.08em; }
+  .step{ width:31px; height:31px; border-radius:8px; background:var(--ink-3);
+         color:var(--paper); border:1px solid var(--line); cursor:pointer; font-size:16px; }
+  .step:hover{ background:var(--line); }
+  .bv{ font-family:"Archivo",sans-serif; font-weight:700; font-size:22px;
+       min-width:56px; text-align:center; font-variant-numeric:tabular-nums; }
+  .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button{ background:transparent; color:var(--dim); border:none;
+               border-right:1px solid var(--line); padding:8px 12px; font-size:12.5px;
+               cursor:pointer; font-family:inherit; }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+
+  .err{ background:rgba(216,105,94,.1); border-left:2px solid var(--bad);
+        border-radius:0 7px 7px 0; padding:11px 13px; font-size:12.5px;
+        line-height:1.75; color:#F0D6D2; }
+  .err b{ color:var(--bad); }
+  .err code{ font-family:"Archivo",monospace; background:rgba(0,0,0,.25);
+             padding:1px 5px; border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="mp-back" href="index.html">← 全部模組</a>
+
+  <header>
+    <h1>掉落練習</h1>
+    <button class="run" id="run" type="button">開始</button>
+  </header>
+
+  <div class="picker">
+    <label for="ex">練習</label>
+    <select id="ex"></select>
+  </div>
+  <p class="meta" id="meta"></p>
+
+  <canvas id="cv" width="612" height="392"></canvas>
+
+  <div class="fb" id="fb"></div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="field">
+        <label>速度</label>
+        <button class="step" id="bd" type="button" aria-label="降速">−</button>
+        <div class="bv" id="bv">50</div>
+        <button class="step" id="bu" type="button" aria-label="加速">+</button>
+      </div>
+      <div class="field">
+        <label>看前面</label>
+        <div class="seg" id="lead">
+          <button type="button" data-v="4" aria-pressed="true">4 拍</button>
+          <button type="button" data-v="8" aria-pressed="false">8 拍</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>示範音</label>
+        <div class="seg" id="demo">
+          <button type="button" data-v="off" aria-pressed="false">關</button>
+          <button type="button" data-v="on"  aria-pressed="true">開</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>聽我彈</label>
+        <div class="seg" id="micseg">
+          <button type="button" data-v="off" aria-pressed="true">關</button>
+          <button type="button" data-v="on"  aria-pressed="false">開</button>
+        </div>
+      </div>
+    </div>
+    <div id="gate"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){ return document.getElementById(id); };
+  var LO=48, HI=71;                       // C3 → B4
+  var NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  var WHITE_PC=[0,2,4,5,7,9,11];
+  var BLACK_PREV={1:0, 3:1, 6:3, 8:4, 10:5};
+
+  /* ---------- 練習內容 ---------- */
+  // b = 起始拍, d = 長度(拍), n = MIDI, f = 右手指法
+  function ev(b,d,notes,fingers,label){
+    return { b:b, d:d, n:notes, f:fingers, label:label };
+  }
+  var EX={
+    six:{ name:"C 大調六個和弦", bars:4, note:"對應進度第 3 關。三個音一起下去,右手 1-3-5。",
+      poly:true, len:24,
+      e:[ ev(0,3.6,[48,52,55],[1,3,5],"C"),  ev(4,3.6,[50,53,57],[1,3,5],"Dm"),
+          ev(8,3.6,[52,55,59],[1,3,5],"Em"), ev(12,3.6,[53,57,60],[1,3,5],"F"),
+          ev(16,3.6,[55,59,62],[1,3,5],"G"), ev(20,3.6,[57,60,64],[1,3,5],"Am") ] },
+
+    p145:{ name:"進行 1–4–5", bars:4, note:"最基本的三個和弦。慢慢來,先求按對。",
+      poly:true, len:16,
+      e:[ ev(0,3.6,[48,52,55],[1,3,5],"C"), ev(4,3.6,[53,57,60],[1,3,5],"F"),
+          ev(8,3.6,[55,59,62],[1,3,5],"G"), ev(12,3.6,[48,52,55],[1,3,5],"C") ] },
+
+    inv:{ name:"C 的三種轉位", bars:4, note:"對應進度第 5 關。注意最低音換了,但都是 C E G 三個音。",
+      poly:true, len:12,
+      e:[ ev(0,3.6,[48,52,55],[1,3,5],"原位"),
+          ev(4,3.6,[52,55,60],[1,2,5],"第一轉位"),
+          ev(8,3.6,[55,60,64],[1,3,5],"第二轉位") ] },
+
+    smooth:{ name:"順階連接（轉位應用）", bars:4,
+      note:"對應進度第 6 關。看手指移動多小——這就是轉位的用處。",
+      poly:true, len:16,
+      e:[ ev(0,3.6,[48,52,55],[1,3,5],"C"),  ev(4,3.6,[48,53,57],[1,3,5],"F/C"),
+          ev(8,3.6,[50,55,59],[1,3,5],"G/D"), ev(12,3.6,[48,52,55],[1,3,5],"C") ] },
+
+    scale:{ name:"C 大調音階（單音）", bars:2,
+      note:"單音練習。開麥克風時,這個模式會判斷你彈的音對不對。",
+      poly:false, len:8,
+      e:[ ev(0,0.9,[48],[1]), ev(1,0.9,[50],[2]), ev(2,0.9,[52],[3]),
+          ev(3,0.9,[53],[1]), ev(4,0.9,[55],[2]), ev(5,0.9,[57],[3]),
+          ev(6,0.9,[59],[4]), ev(7,0.9,[60],[5]) ] }
+  };
+
+  var S={ ex:"p145", bpm:50, lead:4, demo:"on", mic:"off", running:false };
+  function X(){ return EX[S.ex]; }
+
+  /* ---------- 音訊 ---------- */
+  var ctx=null,out=null;
+  function A(){
+    if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)();
+      out=ctx.createGain(); out.gain.value=0.5; out.connect(ctx.destination); }
+    if(ctx.state==="suspended") ctx.resume();
+    return ctx;
+  }
+  function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
+  function ftom(f){ return 12*Math.log2(f/440)+69; }
+
+  // 泛音參數移植自 PitchPal jianpu._tone_piano
+  var HARM=[[1,1.00,3.0],[2,0.60,5.0],[3,0.25,8.0],[4,0.10,12.0],[5,0.04,18.0]];
+  function tone(f,t,dur,v){
+    HARM.forEach(function(h){
+      var o=ctx.createOscillator(), g=ctx.createGain();
+      o.type="sine"; o.frequency.value=f*h[0];
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(Math.max(v*h[1],0.0002),t+0.007);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur*(3.0/h[2]));
+      o.connect(g); g.connect(out); o.start(t); o.stop(t+dur+0.08);
+    });
+  }
+  function click(t,down){
+    var o=ctx.createOscillator(), g=ctx.createGain();
+    o.frequency.value=down?1500:900;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(down?0.2:0.1,t+0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t+0.05);
+  }
+
+  /* ---------- 麥克風 ---------- */
+  var an=null,mbuf=null,stream=null,prevRms=0,lastOn=-1;
+  function insecure(){
+    return !(window.isSecureContext||location.protocol==="https:"||
+             location.hostname==="localhost"||location.hostname==="127.0.0.1");
+  }
+  function micOn(){
+    if(insecure()){
+      $("gate").innerHTML='<div class="err"><b>這個環境拿不到麥克風。</b>'+
+        '瀏覽器只允許 <code>https://</code> 或 <code>localhost</code>,'+
+        '<code>file://</code> 不行。掉落塊與示範音不受影響,可以正常練。</div>';
+      setSeg("micseg","off"); S.mic="off"; return;
+    }
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,
+      noiseSuppression:false,autoGainControl:false}}).then(function(s){
+      A(); stream=s;
+      var src=ctx.createMediaStreamSource(s);
+      an=ctx.createAnalyser(); an.fftSize=2048;
+      mbuf=new Float32Array(an.fftSize); src.connect(an);
+      $("gate").innerHTML="";
+    }).catch(function(){
+      $("gate").innerHTML='<div class="err"><b>麥克風被拒絕。</b>在權限設定裡允許後重試。</div>';
+      setSeg("micseg","off"); S.mic="off";
+    });
+  }
+  function micOff(){
+    if(stream) stream.getTracks().forEach(function(t){t.stop();});
+    stream=null; an=null; $("gate").innerHTML="";
+  }
+  function detect(buf,sr){
+    var N=buf.length,rms=0;
+    for(var i=0;i<N;i++) rms+=buf[i]*buf[i];
+    rms=Math.sqrt(rms/N);
+    if(rms<0.012) return {rms:rms,freq:null};
+    var lmin=Math.floor(sr/1100), lmax=Math.min(Math.floor(sr/68),Math.floor(N/2));
+    var best=-1,bl=-1,c=new Float32Array(lmax+2);
+    for(var lag=lmin;lag<=lmax;lag++){
+      var s=0; for(var j=0;j<N-lag;j++) s+=buf[j]*buf[j+lag];
+      s/=(N-lag); c[lag]=s; if(s>best){best=s;bl=lag;}
+    }
+    if(bl<0||best<=0) return {rms:rms,freq:null};
+    var x1=c[bl-1]||0,x2=c[bl],x3=c[bl+1]||0;
+    var a=(x1+x3-2*x2)/2,b=(x3-x1)/2,T=bl;
+    if(a!==0) T=bl-b/(2*a);
+    var f=sr/T;
+    return {rms:rms,freq:(f>=68&&f<=1100)?f:null};
+  }
+
+  /* ---------- 鍵盤幾何 ---------- */
+  var cv=$("cv"), g=cv.getContext("2d");
+  var W=cv.width, H=cv.height, KBH=104, HIT=H-KBH;
+  var whites=[];
+  for(var m=LO;m<=HI;m++) if(WHITE_PC.indexOf(m%12)>=0) whites.push(m);
+  var WW=W/whites.length, BW=WW*0.62;
+
+  function keyX(m){
+    var pc=m%12;
+    if(WHITE_PC.indexOf(pc)>=0) return { x:whites.indexOf(m)*WW, w:WW, black:false };
+    var prevPc=WHITE_PC[BLACK_PREV[pc]];
+    var prevM=m-(pc-prevPc);
+    var i=whites.indexOf(prevM);
+    return { x:i*WW+WW-BW/2, w:BW, black:true };
+  }
+
+  /* ---------- 繪製 ---------- */
+  var startT=0, offsets=[], hitFlash={};
+
+  function spb(){ return 60/S.bpm; }
+  function leadSec(){ return S.lead*spb(); }
+  function pps(){ return HIT/leadSec(); }
+
+  function draw(now){
+    g.clearRect(0,0,W,H);
+    var x=X(), sp=spb(), P=pps();
+    var t = S.running ? (now-startT) : -leadSec();
+    var loopSec = x.len*sp;
+
+    // 拍線
+    g.strokeStyle="#1E2A27"; g.lineWidth=1;
+    for(var k=0;k<=S.lead+1;k++){
+      var bt=Math.ceil(t/sp)*sp+k*sp;
+      var y=HIT-(bt-t)*P;
+      if(y<0||y>HIT) continue;
+      g.beginPath(); g.moveTo(0,y+.5); g.lineTo(W,y+.5); g.stroke();
+    }
+
+    // 掉落塊（含下一輪循環）
+    for(var rep=0; rep<2; rep++){
+      x.e.forEach(function(e){
+        var et=e.b*sp+rep*loopSec;
+        var top=HIT-(et+e.d*sp-t)*P, bot=HIT-(et-t)*P;
+        if(bot<-20||top>HIT+20) return;
+        e.n.forEach(function(m,i){
+          if(m<LO||m>HI) return;
+          var k=keyX(m);
+          var y0=Math.max(top,-20), y1=Math.min(bot,HIT);
+          g.fillStyle = k.black ? "#C8862A" : "#D9D4C6";
+          if(bot>HIT-4 && top<HIT) g.fillStyle = k.black ? "var(--amber)" : "#F2EFE6";
+          rr(k.x+1.5, y0, k.w-3, Math.max(3,y1-y0), 4);
+          if(y1-y0>22){
+            g.fillStyle="#1A1206"; g.font="700 11px Archivo, sans-serif";
+            g.textAlign="center";
+            g.fillText(e.f[i], k.x+k.w/2, y1-8);
+          }
+        });
+        // 和弦名
+        if(e.label && bot>0 && bot<HIT+30){
+          var kk=keyX(e.n[0]);
+          g.fillStyle="#7E8C87"; g.font="600 11px 'Noto Sans TC', sans-serif";
+          g.textAlign="left";
+          g.fillText(e.label, Math.min(kk.x, W-56), Math.min(bot-6, HIT-6));
+        }
+      });
+    }
+
+    // 判定線
+    g.strokeStyle="#E9A63C"; g.lineWidth=2;
+    g.beginPath(); g.moveTo(0,HIT); g.lineTo(W,HIT); g.stroke();
+
+    drawKeyboard(t, sp, loopSec);
+    if(S.running) raf=requestAnimationFrame(function(){ draw(ctx.currentTime-0); });
+  }
+
+  function rr(x,y,w,h,r){
+    g.beginPath();
+    g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+    g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); g.fill();
+  }
+
+  function drawKeyboard(t,sp,loopSec){
+    var lit={};
+    if(S.running){
+      var lt=((t%loopSec)+loopSec)%loopSec;
+      X().e.forEach(function(e){
+        var et=e.b*sp;
+        if(lt>=et-0.04 && lt<et+e.d*sp) e.n.forEach(function(m){ lit[m]=true; });
+      });
+    }
+    whites.forEach(function(m,i){
+      g.fillStyle = lit[m] ? "#E9A63C" : "#F2EFE6";
+      g.fillRect(i*WW+1, HIT+3, WW-2, KBH-6);
+      if(m%12===0){
+        g.fillStyle="#8A8578"; g.font="600 10px Archivo, sans-serif"; g.textAlign="center";
+        g.fillText("C"+(Math.floor(m/12)-1), i*WW+WW/2, HIT+KBH-12);
+      }
+    });
+    for(var m=LO;m<=HI;m++){
+      if(WHITE_PC.indexOf(m%12)>=0) continue;
+      var k=keyX(m);
+      g.fillStyle = lit[m] ? "#E9A63C" : "#121A18";
+      g.fillRect(k.x, HIT+3, k.w, KBH*0.62);
+    }
+  }
+
+  /* ---------- 引擎 ---------- */
+  var raf=null, timer=null, schedBeat=0;
+
+  function schedule(){
+    var x=X(), sp=spb(), loopSec=x.len*sp;
+    while(schedBeat*sp < ctx.currentTime-startT+0.3){
+      var t0=startT+schedBeat*sp;
+      if(t0>ctx.currentTime){
+        click(t0, schedBeat%4===0);
+        if(S.demo==="on"){
+          var lb=((schedBeat%x.len)+x.len)%x.len;
+          x.e.forEach(function(e){
+            if(e.b===lb) e.n.forEach(function(m,i){ tone(mtof(m),t0+i*0.01,e.d*sp,0.06); });
+          });
+        }
+      }
+      schedBeat++;
+    }
+  }
+
+  function listen(){
+    if(!an) return;
+    an.getFloatTimeDomainData(mbuf);
+    var d=detect(mbuf,ctx.sampleRate), now=ctx.currentTime;
+    if(d.rms>0.02 && d.rms>prevRms*1.7 && now-lastOn>0.12){
+      lastOn=now;
+      var x=X(), sp=spb(), loopSec=x.len*sp;
+      var lt=(((now-startT)%loopSec)+loopSec)%loopSec;
+      var best=1e9;
+      x.e.forEach(function(e){
+        var dt=lt-e.b*sp;
+        if(dt>loopSec/2) dt-=loopSec;
+        if(dt<-loopSec/2) dt+=loopSec;
+        if(Math.abs(dt)<Math.abs(best)) best=dt;
+      });
+      offsets.push(best*1000);
+      if(offsets.length>16) offsets.shift();
+      paintFb(d);
+    }
+    prevRms=prevRms*0.6+d.rms*0.4;
+  }
+
+  function paintFb(d){
+    var f=$("fb");
+    if(S.mic!=="on"){
+      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">'+
+        '打開「聽我彈」可以看到你按早了還是晚了。需要 HTTPS 環境。<br>'+
+        '沒有麥克風也能練——掉落塊本身的價值是讓你<b>提前看到</b>接下來要按哪裡。</p>';
+      return;
+    }
+    if(!offsets.length){
+      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">開始彈,這裡會顯示時間差。</p>';
+      return;
+    }
+    var avg=offsets.reduce(function(a,b){return a+b;},0)/offsets.length;
+    var sd=Math.sqrt(offsets.reduce(function(a,b){return a+(b-avg)*(b-avg);},0)/offsets.length);
+    var ac=Math.abs(avg)<30?"ok":(Math.abs(avg)<70?"off":"bad");
+    var sc=sd<35?"ok":(sd<70?"off":"bad");
+    var extra="";
+    if(!X().poly && d && d.freq){
+      extra='<div class="fbrow"><span class="fblab">聽到的音</span>'+
+        '<span class="fbval">'+NAMES[((Math.round(ftom(d.freq))%12)+12)%12]+'</span></div>';
+    }
+    f.innerHTML=
+      '<div class="fbrow"><span class="fblab">平均時間差</span>'+
+      '<span class="fbval '+ac+'">'+(avg>0?"+":"")+Math.round(avg)+' ms</span></div>'+
+      '<div class="fbrow"><span class="fblab">穩定度（越小越穩）</span>'+
+      '<span class="fbval '+sc+'">±'+Math.round(sd)+' ms</span></div>'+ extra +
+      '<p class="fbnote">'+
+      (Math.abs(avg)<30?"時間差很小,這樣就對了。":
+       avg>0?"你平均慢了。多半是找鍵找太久——把速度降下來,讓手先記住位置。":
+             "你平均快了。不要搶在塊碰到線之前按。")+
+      (X().poly?'<br>三個音一起彈時只判斷時機,不判斷按對哪些鍵——那要用單音練習。':'')+
+      '</p>';
+  }
+
+  /* ---------- 控制 ---------- */
+  function loop(){
+    if(!S.running) return;
+    raf=requestAnimationFrame(loop);
+    draw(ctx.currentTime);
+    if(S.mic==="on") listen();
+  }
+  function start(){
+    A(); S.running=true;
+    $("run").textContent="停止"; $("run").classList.add("on");
+    startT=ctx.currentTime+leadSec(); schedBeat=0; offsets=[]; prevRms=0; lastOn=-1;
+    timer=setInterval(schedule,40);
+    raf=requestAnimationFrame(loop);
+    paintFb();
+  }
+  function stop(){
+    S.running=false;
+    $("run").textContent="開始"; $("run").classList.remove("on");
+    clearInterval(timer); cancelAnimationFrame(raf);
+    draw(0);
+  }
+  function restart(){ if(S.running){ stop(); start(); } else draw(0); }
+
+  $("run").addEventListener("click",function(){ S.running?stop():start(); });
+  document.addEventListener("keydown",function(e){
+    if(e.code==="Space"&&e.target.tagName!=="BUTTON"&&e.target.tagName!=="SELECT"){
+      e.preventDefault(); S.running?stop():start();
+    }
+  });
+
+  function setSeg(id,v){
+    Array.prototype.forEach.call($(id).children,function(x){
+      x.setAttribute("aria-pressed", x.dataset.v===v?"true":"false");
+    });
+  }
+  function seg(id,fn){
+    $(id).addEventListener("click",function(e){
+      var b=e.target.closest("button"); if(!b) return;
+      setSeg(id,b.dataset.v); fn(b.dataset.v);
+    });
+  }
+  seg("lead",function(v){ S.lead=parseInt(v,10); restart(); });
+  seg("demo",function(v){ S.demo=v; });
+  seg("micseg",function(v){ S.mic=v; v==="on"?micOn():micOff(); paintFb(); });
+
+  $("bu").addEventListener("click",function(){ S.bpm=Math.min(120,S.bpm+2); $("bv").textContent=S.bpm; restart(); });
+  $("bd").addEventListener("click",function(){ S.bpm=Math.max(30,S.bpm-2); $("bv").textContent=S.bpm; restart(); });
+
+  var sel=$("ex");
+  Object.keys(EX).forEach(function(k){
+    var o=document.createElement("option"); o.value=k; o.textContent=EX[k].name;
+    if(k===S.ex) o.selected=true; sel.appendChild(o);
+  });
+  sel.addEventListener("change",function(){ S.ex=sel.value; paintMeta(); paintFb(); restart(); });
+
+  function paintMeta(){
+    var x=X();
+    $("meta").textContent=x.len+" 拍循環　·　"+x.note;
+  }
+
+  paintMeta(); paintFb(); draw(0);
+  if(insecure()){
+    $("gate").innerHTML='<div class="err">目前是 <code>file://</code> 環境,'+
+      '「聽我彈」不能用。掉落塊與示範音正常。</div>';
+  }
+})();
+</script>
