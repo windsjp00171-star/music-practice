@@ -2,15 +2,19 @@
    目的：第一次連過網路之後，整包就能完全離線使用。
    琴房、教會這種網路差的地方照樣練。
 
-   策略：
-   - 自家檔案（HTML／JS／CSS／圖示）預先快取，之後一律先讀快取
-   - Google Fonts 執行期才快取；拿不到就退回系統字體，不影響功能
-   - 換版本只要改 VERSION，舊快取會在啟用時清掉
+   策略：**自家檔案一律網路優先，離線才用快取。**
+
+   為什麼不是快取優先：這個工具還在持續修改。快取優先的話，
+   改完推上去，平板會一直開舊版，除非每次都記得改 VERSION——
+   那是遲早會忘記的事，而且症狀（「我明明改了啊」）很難聯想到快取。
+   網路優先只是多花零點幾秒，離線能力完全不變。
+
+   字體之類的外部資源仍走快取優先，那些不會變。
 
    注意：Service Worker 只在 https:// 或 localhost 下運作，
    file:// 不會註冊——那是瀏覽器規則，不是設定問題。 */
 
-var VERSION = "v1";
+var VERSION = "v2";
 var CACHE = "music-practice-" + VERSION;
 
 /* 應用程式本體。少一個檔案會讓整批 addAll 失敗，所以清單要跟實際檔案一致。 */
@@ -72,18 +76,18 @@ self.addEventListener("fetch", function(e){
   var sameOrigin = url.origin === self.location.origin;
 
   if(sameOrigin){
-    /* 自家檔案：先快取，沒有才走網路，順便補進快取 */
+    /* 自家檔案：網路優先，成功就順手更新快取；失敗（離線）才回頭用快取 */
     e.respondWith(
-      caches.match(req).then(function(hit){
-        if(hit) return hit;
-        return fetch(req).then(function(res){
-          if(res && res.status === 200){
-            var copy = res.clone();
-            caches.open(CACHE).then(function(c){ c.put(req, copy); });
-          }
-          return res;
-        }).catch(function(){
-          /* 離線且沒快取：導頁請求就退回首頁，其他就讓它失敗 */
+      fetch(req).then(function(res){
+        if(res && res.status === 200){
+          var copy = res.clone();
+          caches.open(CACHE).then(function(c){ c.put(req, copy); });
+        }
+        return res;
+      }).catch(function(){
+        return caches.match(req).then(function(hit){
+          if(hit) return hit;
+          /* 離線且沒快取：導頁請求退回首頁，其他就讓它失敗 */
           if(req.mode === "navigate") return caches.match("./index.html");
         });
       })

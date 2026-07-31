@@ -174,6 +174,8 @@
 </div>
 
 <script src="shared/chords.js"></script>
+<script src="shared/theory.js"></script>
+<script src="shared/store.js"></script>
 <script src="shared/pitch.js"></script>
 <script src="shared/audio.js"></script>
 <script src="shared/clock.js"></script>
@@ -182,8 +184,8 @@
 (function(){
   "use strict";
 
-  if(!window.MP||!MP.chords||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
-    document.body.innerHTML='<p style="max-width:640px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/chords.js、shared/pitch.js、shared/audio.js、shared/clock.js、shared/timing.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+  if(!window.MP||!MP.chords||!MP.theory||!MP.store||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
+    document.body.innerHTML='<p style="max-width:640px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/ 下的共用檔案）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
     return;
   }
   var $=function(id){ return document.getElementById(id); };
@@ -211,8 +213,20 @@
       note:"God Will Take Care of You · 公有領域。" }
   };
 
+  /* 內建曲目用手調好的低把位 voicing，聽起來比較厚 */
   var CHORD={ "G":[43,47,50,55], "C":[48,52,55,60], "D":[50,54,57,62],
               "Em":[52,55,59,64], "Am":[45,52,57,60], "Bm":[47,54,59,62] };
+
+  /* 自建曲目可能用到任何和弦，查不到就用 shared/theory.js 現算一個。
+     降八度是為了跟上面手調的那幾個音域對得起來。 */
+  var derived={};
+  function chordNotes(name){
+    if(CHORD[name]) return CHORD[name];
+    if(derived[name] !== undefined) return derived[name];
+    var p=MP.theory.parseChordToken(name);
+    derived[name] = p ? [p.bass-12].concat(p.notes.map(function(n){ return n-12; })) : null;
+    return derived[name];
+  }
 
   var S={ song:"prog145", bpm:72, back:"click", mic:"off", running:false };
 
@@ -256,7 +270,7 @@
   function playChord(name,t,dur){
     /* 沒有對應吉他指型的和弦就退回鋼琴，不要變成無聲 */
     if(S.back==="guitar" && strumGuitar(name,t,dur)) return;
-    var ns=CHORD[name]; if(!ns) return;
+    var ns=chordNotes(name); if(!ns) return;
     ns.forEach(function(m,i){ tone(mtof(m),t+i*0.012,dur); });
   }
 
@@ -299,7 +313,37 @@
   var offsets=MP.timing.createOffsets({limit:16,okAvg:25,offAvg:60,okSd:30,offSd:60});
   var hits={},notesOk=0,notesTot=0;
 
-  function song(){ return SONGS[S.song]; }
+  /* 自建曲庫（songs.html 存的）。載入後併進下拉選單，
+     這樣打進去的譜才真的能拿來練——不然 songs.html 就只是個記事本。 */
+  var MINE={};
+
+  function loadMine(){
+    return MP.store.get(MP.store.KEYS.songs).then(function(list){
+      if(!list || !list.length) return;
+      list.forEach(function(rec){
+        var bars = rec.mode === "degree"
+          ? rec.bars.map(function(t){
+              var r = MP.theory.degreeToChord(t, rec.key);
+              return r.ok ? r.text : t;
+            })
+          : rec.bars.slice();
+        /* 認不得的和弦會讓伴奏無聲，先濾掉整首比讓使用者困惑好 */
+        var bad = bars.filter(function(b){ return !chordNotes(b); });
+        MINE["mine:"+rec.id] = {
+          name: rec.title,
+          key: rec.key,
+          beats: rec.beats,
+          bars: bars,
+          mine: true,
+          bad: bad,
+          note: (rec.mode === "degree" ? "級數輸入 · key of " + rec.key : "和弦名輸入") +
+                (bad.length ? "　⚠ 認不得的和弦：" + bad.join(" ") : "")
+        };
+      });
+    }).catch(function(){});
+  }
+
+  function song(){ return SONGS[S.song] || MINE[S.song]; }
 
   function spbNow(){ return 60/S.bpm; }
 
@@ -341,7 +385,8 @@
       if(d.freq){
         notesTot++;
         var pc=((Math.round(ftom(d.freq))%12)+12)%12;
-        var ok=CHORD[sg.bars[bi]].some(function(m){ return ((m%12)+12)%12===pc; });
+        var want=chordNotes(sg.bars[bi]) || [];
+        var ok=want.some(function(m){ return ((m%12)+12)%12===pc; });
         if(ok) notesOk++;
         hits[bi]=ok?"g":"b";
       }
@@ -477,10 +522,28 @@
   $("bd").addEventListener("click",function(){ S.bpm=Math.max(40,S.bpm-2); $("bv").textContent=S.bpm; });
 
   var sel=$("song");
-  Object.keys(SONGS).forEach(function(k){
-    var o=document.createElement("option"); o.value=k; o.textContent=SONGS[k].name;
-    sel.appendChild(o);
-  });
+
+  function buildSongList(){
+    sel.innerHTML="";
+    var g1=document.createElement("optgroup"); g1.label="內建";
+    Object.keys(SONGS).forEach(function(k){
+      var o=document.createElement("option"); o.value=k; o.textContent=SONGS[k].name;
+      g1.appendChild(o);
+    });
+    sel.appendChild(g1);
+
+    var mine=Object.keys(MINE);
+    if(mine.length){
+      var g2=document.createElement("optgroup"); g2.label="我的曲目";
+      mine.forEach(function(k){
+        var o=document.createElement("option"); o.value=k; o.textContent=MINE[k].name;
+        g2.appendChild(o);
+      });
+      sel.appendChild(g2);
+    }
+    sel.value=S.song;
+  }
+  buildSongList();
   sel.addEventListener("change",function(){
     S.song=sel.value; hits={}; buildLamps(); paintMeta(); paintChart(); restart();
   });
@@ -492,6 +555,15 @@
   }
 
   buildLamps(); paintMeta(); paintChart(); paintFeedback();
+
+  loadMine().then(function(){
+    buildSongList();
+    if(!Object.keys(MINE).length){
+      var m=$("meta");
+      m.innerHTML += '<br><span style="color:#7E8C87">還沒有自建曲目。到「我的曲目」打一首自己想彈的，' +
+                     '打完會出現在上面的選單裡。</span>';
+    }
+  });
   if(insecure()){
     $("gate").innerHTML='<div class="err">目前是 <code>file://</code> 環境，'+
       '「聽我彈」不能用。節拍與伴奏可以正常使用。</div>';
