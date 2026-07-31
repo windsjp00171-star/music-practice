@@ -6,7 +6,7 @@
 <title>樂器練習</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#121A18">
 <meta name="mobile-web-app-capable" content="yes">
@@ -28,159 +28,264 @@
   body{
     background:var(--ink); color:var(--paper);
     font-family:"Noto Sans TC", system-ui, sans-serif;
-    -webkit-font-smoothing:antialiased; padding-bottom:48px;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:64px;
   }
-  .wrap{ max-width:620px; margin:0 auto; padding:0 16px; }
+  .wrap{ max-width:780px; margin:0 auto; padding:0 20px; }
 
-  header{ padding:26px 0 16px; border-bottom:1px solid var(--line); }
-  h1{ font-size:16px; font-weight:700; letter-spacing:.08em; }
-  header p{ font-size:12.5px; color:var(--dim); margin-top:8px; line-height:1.75; }
+  /* ---------- 標頭 ---------- */
+  header{ padding:44px 0 26px; }
+  .eyebrow{
+    font-family:"Archivo",sans-serif; font-weight:600;
+    font-size:10.5px; letter-spacing:.34em; color:var(--amber);
+    text-transform:uppercase; margin-bottom:14px;
+  }
+  h1{
+    font-family:"Archivo","Noto Sans TC",sans-serif;
+    font-weight:800; font-size:clamp(34px,6.5vw,52px);
+    letter-spacing:-.01em; line-height:1;
+  }
+  .lede{
+    font-size:13.5px; color:#AFBAB5; line-height:1.9;
+    margin-top:16px; max-width:52ch;
+  }
+  .lede b{ color:var(--paper); font-weight:500; }
 
+  .rule{
+    height:1px; margin:30px 0 0;
+    background:linear-gradient(90deg,var(--line),rgba(46,62,58,0));
+  }
+
+  /* ---------- 今天練什麼 ---------- */
+  .pick{ margin:30px 0 8px; }
+  .picklabel{
+    font-family:"Archivo",sans-serif; font-weight:600;
+    font-size:10px; letter-spacing:.28em; color:var(--dim);
+    text-transform:uppercase; margin-bottom:12px;
+  }
+  .instgrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .instgrid button{
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column; align-items:flex-start; gap:5px;
+    background:var(--ink-2); color:var(--dim);
+    border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; cursor:pointer; font-family:inherit; text-align:left;
+  }
+  .instgrid button .big{
+    font-size:16px; font-weight:700; letter-spacing:.04em; color:inherit;
+  }
+  .instgrid button .sub{ font-size:11.5px; color:var(--dim); letter-spacing:.02em; }
+  .instgrid button[aria-pressed="true"]{
+    background:var(--paper); color:var(--ink); border-color:var(--paper);
+  }
+  .instgrid button[aria-pressed="true"] .sub{ color:#4A5A55; }
+  .instgrid button[aria-pressed="true"]::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:var(--amber);
+  }
+  .pickhint{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-top:11px; }
+
+  /* ---------- 分組 ---------- */
+  .group{ margin-top:34px; }
+  .grouphead{ display:flex; align-items:center; gap:12px; margin-bottom:13px; }
+  .groupno{
+    font-family:"Archivo",sans-serif; font-weight:800; font-size:11px;
+    color:var(--amber); letter-spacing:.1em; flex:0 0 auto;
+  }
   .grouplabel{
-    font-size:10.5px; color:var(--dim); letter-spacing:.16em;
-    margin:22px 0 9px;
-  }
-
-  .pick{ margin-top:18px; }
-  .picklabel{ font-size:10.5px; color:var(--dim); letter-spacing:.16em; margin-bottom:9px; }
-  .seg{ display:flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
-  .seg button{
-    flex:1; background:transparent; color:var(--dim); border:none;
-    border-right:1px solid var(--line); padding:11px 8px; cursor:pointer;
-    font-family:inherit; font-size:14px;
-  }
-  .seg button:last-child{ border-right:none; }
-  .seg button[aria-pressed="true"]{ background:var(--paper); color:var(--ink); font-weight:700; }
-  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
-  .pickhint{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-top:8px; }
-
-  a.mod{
-    display:block; text-decoration:none; color:inherit;
-    background:var(--ink-2); border:1px solid var(--line);
-    border-radius:12px; padding:15px 16px; margin-bottom:9px;
-  }
-  a.mod:hover{ border-color:var(--dim); }
-  a.mod:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
-  .modtop{ display:flex; align-items:baseline; gap:10px; }
-  .modname{ font-size:14.5px; font-weight:700; }
-  .badge{
-    font-size:10px; letter-spacing:.1em; color:var(--amber);
-    border:1px solid var(--amber); border-radius:20px; padding:2px 8px;
+    font-size:12.5px; font-weight:700; letter-spacing:.16em; color:var(--paper);
     flex:0 0 auto;
   }
-  .modwhat{ font-size:12.5px; color:#C8CFCB; line-height:1.75; margin-top:6px; }
+  .grouphead .line{ flex:1 1 auto; height:1px; background:var(--line); }
 
+  /* ---------- 模組卡 ---------- */
+  .mods{ display:grid; gap:10px; }
+  @media (min-width:660px){ .mods.two{ grid-template-columns:1fr 1fr; } }
+
+  a.mod{
+    position:relative; display:block; text-decoration:none; color:inherit;
+    background:var(--ink-2); border:1px solid var(--line);
+    border-radius:14px; padding:17px 18px 16px 20px;
+    overflow:hidden;
+  }
+  a.mod::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--line); transition:background 130ms cubic-bezier(.2,.7,.3,1);
+  }
+  a.mod:hover::before{ background:var(--amber); }
+  a.mod:hover{ border-color:var(--dim); }
+  .modtop{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .modname{ font-size:15px; font-weight:700; letter-spacing:.02em; }
+  .badge{
+    font-family:"Archivo",sans-serif; font-weight:600;
+    font-size:9.5px; letter-spacing:.12em; color:var(--amber);
+    border:1px solid rgba(233,166,60,.34);
+    border-radius:20px; padding:3px 8px; flex:0 0 auto; text-transform:uppercase;
+  }
+  .modwhat{ font-size:12.5px; color:#A7B3AE; line-height:1.8; margin-top:7px; }
+
+  /* ---------- 匯出 ---------- */
   .tools{
     background:var(--ink-2); border:1px solid var(--line);
-    border-radius:12px; padding:16px; margin-top:9px;
+    border-radius:14px; padding:18px 20px;
   }
-  .tools h2{ font-size:14px; font-weight:700; margin-bottom:7px; }
-  .tools p{ font-size:12.5px; color:var(--dim); line-height:1.75; }
+  .tools h2{ font-size:14.5px; font-weight:700; margin-bottom:8px; letter-spacing:.02em; }
+  .tools p{ font-size:12.5px; color:#A7B3AE; line-height:1.85; }
+  .tools code{
+    font-family:"Archivo",monospace; background:var(--ink-3);
+    padding:1px 6px; border-radius:4px; font-size:11.5px; color:var(--paper);
+  }
+  .toolrow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:14px; }
   .ghost{
-    background:transparent; color:var(--dim); border:1px solid var(--line);
-    border-radius:8px; padding:9px 15px; font-family:inherit; font-size:12.5px;
-    cursor:pointer; margin-top:12px;
+    background:var(--ink-3); color:var(--paper);
+    border:1px solid var(--line); border-radius:10px;
+    padding:11px 18px; font-family:inherit; font-size:13px; cursor:pointer;
   }
-  .ghost:hover{ color:var(--paper); border-color:var(--dim); }
-  .ghost:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
-  .status{ font-size:11.5px; color:var(--dim); margin-left:10px; }
+  .status{ font-size:11.5px; color:var(--dim); }
 
+  /* ---------- 頁尾 ---------- */
   .foot{
-    font-size:11.5px; color:var(--dim); line-height:1.85;
-    margin-top:26px; padding-top:16px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--dim); line-height:1.95;
+    margin-top:34px; padding-top:20px;
+    border-top:1px solid var(--line);
   }
+  .foot b{ color:#A7B3AE; font-weight:500; }
   .foot code{
     font-family:"Archivo",monospace; background:var(--ink-3);
-    padding:1px 5px; border-radius:3px; font-size:11px;
+    padding:1px 6px; border-radius:4px; font-size:11px;
   }
 </style>
+<link rel="stylesheet" href="shared/skin.css">
 </head>
 <body>
 <div class="wrap">
 
   <header>
+    <div class="eyebrow">Guitar &amp; Piano</div>
     <h1>樂器練習</h1>
-    <p>木吉他與鋼琴。這裡只做四件事：知道按哪裡、聽到該有的聲音、看手怎麼動、確認彈得準不準。<br>
-       課程內容不自建，用 JustinGuitar 的免費課程。</p>
+    <p class="lede">
+      這裡只做四件事：<b>知道按哪裡</b>、<b>聽到該有的聲音</b>、<b>看手怎麼動</b>、<b>確認彈得準不準</b>。
+      課程內容不自建，用 JustinGuitar 的免費課程。
+    </p>
+    <div class="rule"></div>
   </header>
 
   <div class="pick">
     <div class="picklabel">今天練什麼</div>
-    <div class="seg" id="inst">
-      <button type="button" data-v="guitar" aria-pressed="true">木吉他</button>
-      <button type="button" data-v="piano"  aria-pressed="false">鋼琴</button>
+    <div class="instgrid" id="inst">
+      <button type="button" data-v="guitar" aria-pressed="true">
+        <span class="big">木吉他</span>
+        <span class="sub">六條弦 · 和弦指型</span>
+      </button>
+      <button type="button" data-v="piano" aria-pressed="false">
+        <span class="big">鋼琴</span>
+        <span class="sub">黑白鍵 · 三和弦與轉位</span>
+      </button>
     </div>
     <p class="pickhint" id="pickhint"></p>
   </div>
 
-  <div class="grouplabel">先看這個</div>
+  <section class="group">
+    <div class="grouphead">
+      <span class="groupno">01</span><span class="grouplabel">先看這個</span>
+      <span class="line"></span>
+    </div>
+    <div class="mods">
+      <a class="mod" href="zero.html">
+        <div class="modtop"><span class="modname">零階 · 認識樂器</span></div>
+        <p class="modwhat">弦名、格數、手指編號、鍵盤地標、指法圖怎麼看。全部是名詞跟規則，沒有要練的東西。</p>
+      </a>
+    </div>
+  </section>
 
-  <a class="mod" href="zero.html">
-    <div class="modtop"><span class="modname">零階 · 認識樂器</span></div>
-    <p class="modwhat">弦名、格數、手指編號、鍵盤地標、指法圖怎麼看。全部是名詞跟規則，沒有要練的東西。</p>
-  </a>
+  <section class="group">
+    <div class="grouphead">
+      <span class="groupno">02</span><span class="grouplabel">按哪裡</span>
+      <span class="line"></span>
+    </div>
+    <div class="mods two">
+      <a class="mod" href="fingering.html">
+        <div class="modtop"><span class="modname">指法圖</span></div>
+        <p class="modwhat">吉他和弦指型、鋼琴三和弦的三種轉位。每個和弦可以寫自己的註記。</p>
+      </a>
+      <a class="mod" href="demo.html">
+        <div class="modtop"><span class="modname">示範 · 聲音與動作</span></div>
+        <p class="modwhat">換和弦時哪根手指不用動、三和弦聽起來該是什麼樣、踏板三種踩法的差別。</p>
+      </a>
+    </div>
+  </section>
 
-  <div class="grouplabel">按哪裡</div>
+  <section class="group">
+    <div class="grouphead">
+      <span class="groupno">03</span><span class="grouplabel">練</span>
+      <span class="line"></span>
+    </div>
+    <div class="mods two">
+      <a class="mod" href="chord-trainer.html">
+        <div class="modtop"><span class="modname">和弦轉換練習</span></div>
+        <p class="modwhat">練的是換和弦，不是按和弦。跟著節拍器，看「現在」該按哪個、「下一個」先準備。</p>
+      </a>
+      <a class="mod" href="playalong.html">
+        <div class="modtop"><span class="modname">跟著彈</span><span class="badge">Mic 選用</span></div>
+        <p class="modwhat">內建曲目加上你自己打的譜。開麥克風可以看到自己刷早了還是晚了。</p>
+      </a>
+      <a class="mod" href="falling-guitar.html">
+        <div class="modtop"><span class="modname">掉落練習 · 吉他</span><span class="badge">Mic 選用</span></div>
+        <p class="modwhat">六弦道上的塊往下掉，提前看到手要移到哪裡。速度可降到 BPM 30，不會失敗中斷。</p>
+      </a>
+      <a class="mod" href="falling.html">
+        <div class="modtop"><span class="modname">掉落練習 · 鋼琴</span><span class="badge">Mic 選用</span></div>
+        <p class="modwhat">鍵盤上方的塊往下掉，提前看到接下來要按哪幾個鍵。含音階與轉位。</p>
+      </a>
+    </div>
+  </section>
 
-  <a class="mod" href="fingering.html">
-    <div class="modtop"><span class="modname">指法圖</span></div>
-    <p class="modwhat">吉他十個和弦指型，鋼琴三和弦的三種轉位。每個和弦可以寫自己的註記。</p>
-  </a>
+  <section class="group">
+    <div class="grouphead">
+      <span class="groupno">04</span><span class="grouplabel">我的譜</span>
+      <span class="line"></span>
+    </div>
+    <div class="mods">
+      <a class="mod" href="songs.html">
+        <div class="modtop"><span class="modname">我的曲目</span></div>
+        <p class="modwhat">自己輸入和弦譜，存在這台裝置上。用級數輸入的話換 key 不用重寫，
+           而且會自動出現在「跟著彈」與兩個掉落練習裡。</p>
+      </a>
+    </div>
+  </section>
 
-  <a class="mod" href="demo.html">
-    <div class="modtop"><span class="modname">示範 · 聲音與動作</span></div>
-    <p class="modwhat">換和弦時哪根手指不用動（支點手指）、三和弦聽起來該是什麼樣、延音踏板三種踩法的差別。</p>
-  </a>
+  <section class="group">
+    <div class="grouphead">
+      <span class="groupno">05</span><span class="grouplabel">確認彈得準不準</span>
+      <span class="line"></span>
+    </div>
+    <div class="mods two">
+      <a class="mod" href="listen.html">
+        <div class="modtop"><span class="modname">聽我彈</span><span class="badge">需要 Mic</span></div>
+        <p class="modwhat">調音器、逐弦檢查、認音。只判斷單音——整個和弦一次刷下去的辨識不可靠。</p>
+      </a>
+      <a class="mod" href="progress.html">
+        <div class="modtop"><span class="modname">練習進度</span></div>
+        <p class="modwhat">吉他與鋼琴各八關，用「關」不用「週」。沒有連續天數、沒有排行、沒有分數。</p>
+      </a>
+    </div>
+  </section>
 
-  <div class="grouplabel">練</div>
-
-  <a class="mod" href="chord-trainer.html">
-    <div class="modtop"><span class="modname">和弦轉換練習</span></div>
-    <p class="modwhat">節拍器加隨機和弦提示。級數模式會一起顯示那個 key 的順階和弦與 capo 建議。</p>
-  </a>
-
-  <a class="mod" href="playalong.html">
-    <div class="modtop"><span class="modname">跟著彈</span><span class="badge">麥克風選用</span></div>
-    <p class="modwhat">六首曲目的和弦骨架，附伴奏。開麥克風可以看到自己刷早了還是晚了。</p>
-  </a>
-
-  <a class="mod" href="falling-guitar.html">
-    <div class="modtop"><span class="modname">掉落練習 · 吉他</span><span class="badge">麥克風選用</span></div>
-    <p class="modwhat">六弦道上的塊往下掉，提前看到手要移到哪裡。六個練習，速度可降到 BPM 30，不會失敗中斷。</p>
-  </a>
-
-  <a class="mod" href="falling.html">
-    <div class="modtop"><span class="modname">掉落練習 · 鋼琴</span><span class="badge">麥克風選用</span></div>
-    <p class="modwhat">鍵盤上方的塊往下掉，提前看到接下來要按哪幾個鍵。五個練習，含音階與轉位。</p>
-  </a>
-
-  <a class="mod" href="songs.html">
-    <div class="modtop"><span class="modname">我的曲目</span></div>
-    <p class="modwhat">自己輸入和弦譜，存在這台裝置上。用級數輸入的話，換 key 不用重寫。</p>
-  </a>
-
-  <div class="grouplabel">確認彈得準不準</div>
-
-  <a class="mod" href="listen.html">
-    <div class="modtop"><span class="modname">聽我彈</span><span class="badge">需要麥克風</span></div>
-    <p class="modwhat">調音器、逐弦檢查、認音。只判斷單音——單音準得住，整個和弦一次刷下去的辨識不可靠。</p>
-  </a>
-
-  <a class="mod" href="progress.html">
-    <div class="modtop"><span class="modname">練習進度</span></div>
-    <p class="modwhat">吉他與鋼琴各八關，用「關」不用「週」。沒有連續天數、沒有排行、沒有分數。</p>
-  </a>
-
-  <div class="grouplabel">帶走</div>
-
-  <div class="tools">
-    <h2>離線閱讀用的匯出</h2>
-    <p>把關卡進度、卡點紀錄、指法圖註記、自建曲目匯出成一份 markdown。
-       資料存在這個瀏覽器裡，換裝置或換網址（<code>file://</code> 跟網頁版算不同地方）
-       不會跟著走，要搬就用這個。</p>
-    <button class="ghost" id="export" type="button">匯出 markdown</button>
-    <span class="status" id="status"></span>
-  </div>
+  <section class="group">
+    <div class="grouphead">
+      <span class="groupno">06</span><span class="grouplabel">帶走</span>
+      <span class="line"></span>
+    </div>
+    <div class="tools">
+      <h2>離線閱讀用的匯出</h2>
+      <p>把關卡進度、卡點紀錄、指法圖註記、自建曲目匯出成一份 markdown。
+         資料存在這個瀏覽器裡，換裝置或換網址（<code>file://</code> 跟網頁版算不同地方）不會跟著走，要搬就用這個。</p>
+      <div class="toolrow">
+        <button class="ghost" id="export" type="button">匯出 markdown</button>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+  </section>
 
   <p class="foot">
     麥克風功能（「聽我彈」，以及跟著彈與兩個掉落練習的時間差回饋）需要
@@ -200,8 +305,8 @@
   var $=function(id){ return document.getElementById(id); };
 
   /* ---------- 今天練什麼 ----------
-     只是把樂器選擇寫進模組連結（?inst=piano）。四個有樂器之分的模組會拿它
-     當預設值，其餘三個忽略但會原樣帶回來，所以來回切換不會被重設。
+     只是把樂器選擇寫進模組連結（?inst=piano）。有樂器之分的模組會拿它
+     當預設值，其餘的忽略但會原樣帶回來，所以來回切換不會被重設。
      用 URL 參數而不是儲存，是因為 file:// 下沒有可用的儲存。 */
 
   var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";

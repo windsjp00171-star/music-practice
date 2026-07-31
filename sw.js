@@ -14,7 +14,7 @@
    注意：Service Worker 只在 https:// 或 localhost 下運作，
    file:// 不會註冊——那是瀏覽器規則，不是設定問題。 */
 
-var VERSION = "v2";
+var VERSION = "v3";
 var CACHE = "music-practice-" + VERSION;
 
 /* 應用程式本體。少一個檔案會讓整批 addAll 失敗，所以清單要跟實際檔案一致。 */
@@ -32,6 +32,7 @@ var SHELL = [
   "./falling-guitar.html",
   "./songs.html",
   "./shared/tokens.css",
+  "./shared/skin.css",
   "./shared/theory.js",
   "./shared/chords.js",
   "./shared/pitch.js",

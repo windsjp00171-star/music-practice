@@ -15,6 +15,25 @@
   --good:   #5FBF8F;
   --bad:    #D8695E;
   --radius: 10px;
+
+  /* ---- 以下是 skin.css 用的，維持原有色票不動 ---- */
+
+  /* 表面：三層深度。越上層越亮，用來分出「這塊是可以互動的」 */
+  --surface-1: linear-gradient(180deg, #1B2624 0%, #172120 100%);
+  --surface-2: linear-gradient(180deg, #22302D 0%, #1D2927 100%);
+  --hairline:  rgba(242,239,230,.06);   /* 上緣一道極細高光，讓卡片浮起來 */
+
+  --amber-soft: rgba(233,166,60,.13);
+  --amber-line: rgba(233,166,60,.34);
+  --amber-glow: 0 0 0 1px rgba(233,166,60,.30), 0 6px 22px -8px rgba(233,166,60,.42);
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.30);
+  --shadow-2: 0 4px 14px -6px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.30);
+  --shadow-3: 0 14px 40px -18px rgba(0,0,0,.70);
+
+  --ease: cubic-bezier(.2,.7,.3,1);
+  --fast: 130ms;
+  --slow: 260ms;
 }
 
 /* 每個模組頁左上角的返回連結。
