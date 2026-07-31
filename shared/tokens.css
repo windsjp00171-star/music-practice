@@ -17,11 +17,13 @@
   --radius: 10px;
 }
 
-/* 每個模組頁左上角的返回連結 */
+/* 每個模組頁左上角的返回連結。
+   padding 是為了觸控：純文字連結在平板上只有十幾 px 高，手指點不準。 */
 .mp-back{
   display:inline-block;
-  margin:14px 0 0;
-  font-size:12px;
+  margin:8px 0 0;
+  padding:9px 10px 9px 0;
+  font-size:12.5px;
   color:var(--dim);
   text-decoration:none;
   letter-spacing:.04em;
