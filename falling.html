@@ -142,6 +142,8 @@
 
 </div>
 
+<script src="shared/theory.js"></script>
+<script src="shared/store.js"></script>
 <script src="shared/pitch.js"></script>
 <script src="shared/audio.js"></script>
 <script src="shared/clock.js"></script>
@@ -150,7 +152,7 @@
 (function(){
   "use strict";
 
-  if(!window.MP||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
+  if(!window.MP||!MP.theory||!MP.store||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
     document.body.innerHTML='<p style="max-width:640px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/pitch.js、shared/audio.js、shared/clock.js、shared/timing.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
     return;
   }
@@ -197,8 +199,52 @@
           ev(6,0.9,[59],[4]), ev(7,0.9,[60],[5]) ] }
   };
 
+  /* 自建曲目轉成掉落練習：一小節一個三和弦。
+     和弦的音要排進鍵盤畫得出來的範圍（LO..HI），
+     超出去的音在畫面上根本不存在，會變成「聽得到卻看不到」。 */
+  function voiceInRange(pcs){
+    var out=[], prev=LO-1;
+    pcs.forEach(function(pc){
+      var m=LO + (((pc - LO) % 12) + 12) % 12;      // 範圍內最低的同名音
+      while(m <= prev) m += 12;                      // 疊在前一個音之上
+      while(m > HI) m -= 12;                         // 超出上限就折回來
+      out.push(m); prev=m;
+    });
+    return out;
+  }
+
+  function songToExercise(rec){
+    var names = rec.mode === "degree"
+      ? rec.bars.map(function(t){ var r=MP.theory.degreeToChord(t, rec.key); return r.ok ? r.text : t; })
+      : rec.bars.slice();
+    var missing=[], events=[];
+    names.forEach(function(n,i){
+      var p=MP.theory.parseChordToken(n);
+      if(!p){ if(missing.indexOf(n)<0) missing.push(n); return; }
+      var pcs=p.notes.map(function(x){ return ((x%12)+12)%12; }).slice(0,4);
+      var notes=voiceInRange(pcs);
+      var fingers=notes.length>3 ? [1,2,3,5] : [1,3,5];
+      events.push({ b:i*rec.beats, d:rec.beats*0.9, n:notes, f:fingers, label:n });
+    });
+    if(!events.length) return null;
+    return { name:rec.title, len:names.length*rec.beats, e:events, poly:true, mine:true,
+             note:"我的曲目 · " + rec.beats + "/4 · " + names.length + " 小節" +
+                  (missing.length ? "　⚠ 認不得、已略過：" + missing.join(" ") : "") };
+  }
+
+  var MINE={};
+  function loadMine(){
+    return MP.store.get(MP.store.KEYS.songs).then(function(list){
+      if(!list) return;
+      list.forEach(function(rec){
+        var ex=songToExercise(rec);
+        if(ex) MINE["mine:"+rec.id]=ex;
+      });
+    }).catch(function(){});
+  }
+
   var S={ ex:"p145", bpm:50, lead:4, demo:"on", mic:"off", running:false };
-  function X(){ return EX[S.ex]; }
+  function X(){ return EX[S.ex] || MINE[S.ex]; }
 
   /* ---------- 音訊 ---------- */
   var ctx=null,out=null;
@@ -461,10 +507,27 @@
   $("bd").addEventListener("click",function(){ S.bpm=Math.max(30,S.bpm-2); $("bv").textContent=S.bpm; restart(); });
 
   var sel=$("ex");
-  Object.keys(EX).forEach(function(k){
-    var o=document.createElement("option"); o.value=k; o.textContent=EX[k].name;
-    if(k===S.ex) o.selected=true; sel.appendChild(o);
-  });
+
+  function buildExList(){
+    sel.innerHTML="";
+    var g1=document.createElement("optgroup"); g1.label="內建練習";
+    Object.keys(EX).forEach(function(k){
+      var o=document.createElement("option"); o.value=k; o.textContent=EX[k].name;
+      g1.appendChild(o);
+    });
+    sel.appendChild(g1);
+    var mine=Object.keys(MINE);
+    if(mine.length){
+      var g2=document.createElement("optgroup"); g2.label="我的曲目";
+      mine.forEach(function(k){
+        var o=document.createElement("option"); o.value=k; o.textContent=MINE[k].name;
+        g2.appendChild(o);
+      });
+      sel.appendChild(g2);
+    }
+    sel.value=S.ex;
+  }
+  buildExList();
   sel.addEventListener("change",function(){ S.ex=sel.value; paintMeta(); paintFb(); restart(); });
 
   function paintMeta(){
@@ -473,6 +536,8 @@
   }
 
   paintMeta(); paintFb(); draw(0);
+
+  loadMine().then(function(){ buildExList(); });
   if(insecure()){
     $("gate").innerHTML='<div class="err">目前是 <code>file://</code> 環境,'+
       '「聽我彈」不能用。掉落塊與示範音正常。</div>';

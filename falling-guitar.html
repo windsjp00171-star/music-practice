@@ -142,6 +142,8 @@
 </div>
 
 <script src="shared/chords.js"></script>
+<script src="shared/theory.js"></script>
+<script src="shared/store.js"></script>
 <script src="shared/pitch.js"></script>
 <script src="shared/audio.js"></script>
 <script src="shared/clock.js"></script>
@@ -150,7 +152,7 @@
 (function(){
   "use strict";
 
-  if(!window.MP||!MP.chords||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
+  if(!window.MP||!MP.chords||!MP.theory||!MP.store||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
     document.body.innerHTML='<p style="max-width:640px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/chords.js、shared/pitch.js、shared/audio.js、shared/clock.js、shared/timing.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
     return;
   }
@@ -200,8 +202,41 @@
           chord(6.5,0.4,"Am","U"), chord(7,0.4,"Am","D"), chord(7.5,0.4,"Am","U") ] }
   };
 
+  /* 自建曲目（songs.html 存的）轉成掉落練習：一小節一個和弦。
+     只收得了有指型的和弦——沒有指型就畫不出格數，硬畫會是錯的。 */
+  function songToExercise(rec){
+    var names = rec.mode === "degree"
+      ? rec.bars.map(function(t){ var r=MP.theory.degreeToChord(t, rec.key); return r.ok ? r.text : t; })
+      : rec.bars.slice();
+    var shapes=MP.chords.GUITAR_SHAPES;
+    var missing=[], events=[];
+    names.forEach(function(n,i){
+      var sh=shapes[n];
+      if(!sh){ if(missing.indexOf(n)<0) missing.push(n); return; }
+      events.push({ b:i*rec.beats, d:rec.beats*0.9, frets:sh.frets.slice(),
+                    label:n, dir:null, poly:true });
+    });
+    if(!events.length) return null;
+    return { name:rec.title, len:names.length*rec.beats, e:events, mine:true,
+             note:"我的曲目 · " + rec.beats + "/4 · " + names.length + " 小節" +
+                  (missing.length ? "　⚠ 沒有指型、已略過：" + missing.join(" ") : "") };
+  }
+
+  var MINE={};
+  function loadMine(){
+    return MP.store.get(MP.store.KEYS.songs).then(function(list){
+      if(!list) return;
+      list.forEach(function(rec){
+        var ex=songToExercise(rec);
+        if(ex) MINE["mine:"+rec.id]=ex;
+      });
+    }).catch(function(){});
+  }
+  function allEx(){ var o={}; Object.keys(EX).forEach(function(k){o[k]=EX[k];});
+                    Object.keys(MINE).forEach(function(k){o[k]=MINE[k];}); return o; }
+
   var S={ ex:"emam", bpm:50, lead:4, demo:"on", mic:"off", running:false };
-  function X(){ return EX[S.ex]; }
+  function X(){ return EX[S.ex] || MINE[S.ex]; }
 
   /* ---------- 音訊 ---------- */
   var ctx=null,out=null;
@@ -482,16 +517,38 @@
   $("bd").addEventListener("click",function(){ S.bpm=Math.max(30,S.bpm-2); $("bv").textContent=S.bpm; restart(); });
 
   var sel=$("ex");
-  Object.keys(EX).forEach(function(k){
-    EX[k].e.forEach(function(e){ e._p_=[false,false,false]; });
-    var o=document.createElement("option"); o.value=k; o.textContent=EX[k].name;
-    if(k===S.ex) o.selected=true; sel.appendChild(o);
-  });
+
+  function buildExList(){
+    sel.innerHTML="";
+    var all=allEx();
+    Object.keys(all).forEach(function(k){
+      all[k].e.forEach(function(e){ e._p_=[false,false,false]; });
+    });
+    var g1=document.createElement("optgroup"); g1.label="內建練習";
+    Object.keys(EX).forEach(function(k){
+      var o=document.createElement("option"); o.value=k; o.textContent=EX[k].name;
+      g1.appendChild(o);
+    });
+    sel.appendChild(g1);
+    var mine=Object.keys(MINE);
+    if(mine.length){
+      var g2=document.createElement("optgroup"); g2.label="我的曲目";
+      mine.forEach(function(k){
+        var o=document.createElement("option"); o.value=k; o.textContent=MINE[k].name;
+        g2.appendChild(o);
+      });
+      sel.appendChild(g2);
+    }
+    sel.value=S.ex;
+  }
+  buildExList();
   sel.addEventListener("change",function(){ S.ex=sel.value; paintMeta(); paintFb(); restart(); });
 
   function paintMeta(){ $("meta").textContent=X().len+" 拍循環　·　"+X().note; }
 
   paintMeta(); paintFb(); draw(0);
+
+  loadMine().then(function(){ buildExList(); });
   if(insecure()){
     $("gate").innerHTML='<div class="err">目前是 <code>file://</code> 環境,'+
       '「聽我彈」不能用。掉落塊與示範音正常。</div>';
