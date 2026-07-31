@@ -88,7 +88,8 @@ https://<帳號>.github.io/...   部署後
 
 ```
 index.html            模組入口
-zero / fingering / demo / chord-trainer / progress / listen / playalong .html
+zero / fingering / demo / chord-trainer / progress / listen /
+playalong / falling / falling-guitar / songs .html
 shared/
   tokens.css          設計 token
   clock.js            lookahead 排程器、時間軸幾何
@@ -99,7 +100,6 @@ shared/
   pitch.js            音高偵測、麥克風
   audio.js            節拍 click、音色合成
   store.js            儲存與匯出
-  stages.js           八關的關卡資料
 ```
 
 ### 改東西的時候
