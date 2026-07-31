@@ -138,9 +138,18 @@
 
 </div>
 
+<script src="shared/pitch.js"></script>
+<script src="shared/audio.js"></script>
+<script src="shared/clock.js"></script>
+<script src="shared/timing.js"></script>
 <script>
 (function(){
   "use strict";
+
+  if(!window.MP||!MP.pitch||!MP.audio||!MP.clock||!MP.timing){
+    document.body.innerHTML='<p style="max-width:640px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/pitch.js、shared/audio.js、shared/clock.js、shared/timing.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+    return;
+  }
   var $=function(id){ return document.getElementById(id); };
   var LO=48, HI=71;                       // C3 → B4
   var NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -195,36 +204,26 @@
     if(ctx.state==="suspended") ctx.resume();
     return ctx;
   }
-  function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
-  function ftom(f){ return 12*Math.log2(f/440)+69; }
+  var mtof=MP.pitch.mtof, ftom=MP.pitch.ftom;
 
-  // 泛音參數移植自 PitchPal jianpu._tone_piano
-  var HARM=[[1,1.00,3.0],[2,0.60,5.0],[3,0.25,8.0],[4,0.10,12.0],[5,0.04,18.0]];
-  function tone(f,t,dur,v){
-    HARM.forEach(function(h){
-      var o=ctx.createOscillator(), g=ctx.createGain();
-      o.type="sine"; o.frequency.value=f*h[0];
-      g.gain.setValueAtTime(0.0001,t);
-      g.gain.exponentialRampToValueAtTime(Math.max(v*h[1],0.0002),t+0.007);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+dur*(3.0/h[2]));
-      o.connect(g); g.connect(out); o.start(t); o.stop(t+dur+0.08);
-    });
+  /* 鋼琴音色改成取樣緩衝（shared/audio.js，參數移植自 PitchPal）。
+     TONE_GAIN 讓三個音同時響的音量跟原本相當。 */
+  var TONE_GAIN=0.16;
+  function tone(f,t,dur){
+    MP.audio.playNote("piano",ctx,out,f,t,dur,{gain:TONE_GAIN});
   }
   function click(t,down){
-    var o=ctx.createOscillator(), g=ctx.createGain();
-    o.frequency.value=down?1500:900;
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(down?0.2:0.1,t+0.001);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);
-    o.connect(g); g.connect(out); o.start(t); o.stop(t+0.05);
+    MP.audio.click(ctx,out,t,down,
+      { gainDown:0.2, gainUp:0.1, freqDown:1500, freqUp:900, decay:0.04 });
   }
 
   /* ---------- 麥克風 ---------- */
-  var an=null,mbuf=null,stream=null,prevRms=0,lastOn=-1;
-  function insecure(){
-    return !(window.isSecureContext||location.protocol==="https:"||
-             location.hostname==="localhost"||location.hostname==="127.0.0.1");
-  }
+  var mic=null,an=null,mbuf=null;
+  /* 音頭偵測與時間差統計在 shared/timing.js */
+  var onset=MP.timing.createOnsetDetector({minRms:0.02,rise:1.7,guard:0.12});
+  /* file:// 在 Chrome 裡 isSecureContext 是 true 但仍拿不到麥克風，
+     shared/pitch.js 有把這個特例處理掉 */
+  var insecure=MP.pitch.isInsecure;
   function micOn(){
     if(insecure()){
       $("gate").innerHTML='<div class="err"><b>這個環境拿不到麥克風。</b>'+
@@ -232,12 +231,9 @@
         '<code>file://</code> 不行。掉落塊與示範音不受影響,可以正常練。</div>';
       setSeg("micseg","off"); S.mic="off"; return;
     }
-    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,
-      noiseSuppression:false,autoGainControl:false}}).then(function(s){
-      A(); stream=s;
-      var src=ctx.createMediaStreamSource(s);
-      an=ctx.createAnalyser(); an.fftSize=2048;
-      mbuf=new Float32Array(an.fftSize); src.connect(an);
+    A();
+    MP.pitch.requestMic({ctx:ctx}).then(function(h){
+      mic=h; an=h.analyser; mbuf=h.buf;
       $("gate").innerHTML="";
     }).catch(function(){
       $("gate").innerHTML='<div class="err"><b>麥克風被拒絕。</b>在權限設定裡允許後重試。</div>';
@@ -245,27 +241,11 @@
     });
   }
   function micOff(){
-    if(stream) stream.getTracks().forEach(function(t){t.stop();});
-    stream=null; an=null; $("gate").innerHTML="";
+    MP.pitch.releaseMic(mic);   // ctx 共用，releaseMic 不會關掉它
+    mic=null; an=null; mbuf=null; $("gate").innerHTML="";
   }
-  function detect(buf,sr){
-    var N=buf.length,rms=0;
-    for(var i=0;i<N;i++) rms+=buf[i]*buf[i];
-    rms=Math.sqrt(rms/N);
-    if(rms<0.012) return {rms:rms,freq:null};
-    var lmin=Math.floor(sr/1100), lmax=Math.min(Math.floor(sr/68),Math.floor(N/2));
-    var best=-1,bl=-1,c=new Float32Array(lmax+2);
-    for(var lag=lmin;lag<=lmax;lag++){
-      var s=0; for(var j=0;j<N-lag;j++) s+=buf[j]*buf[j+lag];
-      s/=(N-lag); c[lag]=s; if(s>best){best=s;bl=lag;}
-    }
-    if(bl<0||best<=0) return {rms:rms,freq:null};
-    var x1=c[bl-1]||0,x2=c[bl],x3=c[bl+1]||0;
-    var a=(x1+x3-2*x2)/2,b=(x3-x1)/2,T=bl;
-    if(a!==0) T=bl-b/(2*a);
-    var f=sr/T;
-    return {rms:rms,freq:(f>=68&&f<=1100)?f:null};
-  }
+  /* 自相關音高偵測在 shared/pitch.js */
+  function detect(buf,sr){ return MP.pitch.detect(buf,sr,{minRms:0.012}); }
 
   /* ---------- 鍵盤幾何 ---------- */
   var cv=$("cv"), g=cv.getContext("2d");
@@ -284,7 +264,8 @@
   }
 
   /* ---------- 繪製 ---------- */
-  var startT=0, offsets=[], hitFlash={};
+  var startT=0, hitFlash={};
+  var offsets=MP.timing.createOffsets({limit:16,okAvg:30,offAvg:70,okSd:35,offSd:70});
 
   function spb(){ return 60/S.bpm; }
   function leadSec(){ return S.lead*spb(); }
@@ -342,11 +323,9 @@
     if(S.running) raf=requestAnimationFrame(function(){ draw(ctx.currentTime-0); });
   }
 
-  function rr(x,y,w,h,r){
-    g.beginPath();
-    g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
-    g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); g.fill();
-  }
+  /* 圓角矩形跟樂器無關，放在 shared/clock.js。
+     鍵盤幾何與六弦道各自留在自己檔案裡，那才是「畫成什麼樣」。 */
+  function rr(x,y,w,h,r){ MP.clock.roundRect(g,x,y,w,h,r); }
 
   function drawKeyboard(t,sp,loopSec){
     var lit={};
@@ -374,22 +353,18 @@
   }
 
   /* ---------- 引擎 ---------- */
-  var raf=null, timer=null, schedBeat=0;
+  var raf=null, beatClock=null;
 
-  function schedule(){
-    var x=X(), sp=spb(), loopSec=x.len*sp;
-    while(schedBeat*sp < ctx.currentTime-startT+0.3){
-      var t0=startT+schedBeat*sp;
-      if(t0>ctx.currentTime){
-        click(t0, schedBeat%4===0);
-        if(S.demo==="on"){
-          var lb=((schedBeat%x.len)+x.len)%x.len;
-          x.e.forEach(function(e){
-            if(e.b===lb) e.n.forEach(function(m,i){ tone(mtof(m),t0+i*0.01,e.d*sp,0.06); });
-          });
-        }
-      }
-      schedBeat++;
+  /* 排程器在 shared/clock.js，這裡只管「這一拍要發生什麼」 */
+  function onBeat(index, t0){
+    if(t0<=ctx.currentTime) return;
+    var x=X(), sp=spb();
+    click(t0, index%4===0);
+    if(S.demo==="on"){
+      var lb=((index%x.len)+x.len)%x.len;
+      x.e.forEach(function(e){
+        if(e.b===lb) e.n.forEach(function(m,i){ tone(mtof(m),t0+i*0.01,e.d*sp); });
+      });
     }
   }
 
@@ -397,22 +372,13 @@
     if(!an) return;
     an.getFloatTimeDomainData(mbuf);
     var d=detect(mbuf,ctx.sampleRate), now=ctx.currentTime;
-    if(d.rms>0.02 && d.rms>prevRms*1.7 && now-lastOn>0.12){
-      lastOn=now;
+    if(onset.feed(d.rms, now)){
       var x=X(), sp=spb(), loopSec=x.len*sp;
       var lt=(((now-startT)%loopSec)+loopSec)%loopSec;
-      var best=1e9;
-      x.e.forEach(function(e){
-        var dt=lt-e.b*sp;
-        if(dt>loopSec/2) dt-=loopSec;
-        if(dt<-loopSec/2) dt+=loopSec;
-        if(Math.abs(dt)<Math.abs(best)) best=dt;
-      });
-      offsets.push(best*1000);
-      if(offsets.length>16) offsets.shift();
+      var best=MP.timing.nearestOffset(lt, x.e.map(function(e){ return e.b*sp; }), loopSec);
+      if(best!==null) offsets.push(best*1000);
       paintFb(d);
     }
-    prevRms=prevRms*0.6+d.rms*0.4;
   }
 
   function paintFb(d){
@@ -423,30 +389,21 @@
         '沒有麥克風也能練——掉落塊本身的價值是讓你<b>提前看到</b>接下來要按哪裡。</p>';
       return;
     }
-    if(!offsets.length){
-      f.innerHTML='<p class="fbnote" style="margin:0;padding:0;border:0">開始彈,這裡會顯示時間差。</p>';
+    var st=offsets.stats();
+    if(!st){
+      f.innerHTML=MP.timing.idleHtml("開始彈,這裡會顯示時間差。");
       return;
     }
-    var avg=offsets.reduce(function(a,b){return a+b;},0)/offsets.length;
-    var sd=Math.sqrt(offsets.reduce(function(a,b){return a+(b-avg)*(b-avg);},0)/offsets.length);
-    var ac=Math.abs(avg)<30?"ok":(Math.abs(avg)<70?"off":"bad");
-    var sc=sd<35?"ok":(sd<70?"off":"bad");
     var extra="";
     if(!X().poly && d && d.freq){
-      extra='<div class="fbrow"><span class="fblab">聽到的音</span>'+
-        '<span class="fbval">'+NAMES[((Math.round(ftom(d.freq))%12)+12)%12]+'</span></div>';
+      extra=MP.timing.row("聽到的音", MP.pitch.nameOf(ftom(d.freq)));
     }
-    f.innerHTML=
-      '<div class="fbrow"><span class="fblab">平均時間差</span>'+
-      '<span class="fbval '+ac+'">'+(avg>0?"+":"")+Math.round(avg)+' ms</span></div>'+
-      '<div class="fbrow"><span class="fblab">穩定度（越小越穩）</span>'+
-      '<span class="fbval '+sc+'">±'+Math.round(sd)+' ms</span></div>'+ extra +
-      '<p class="fbnote">'+
-      (Math.abs(avg)<30?"時間差很小,這樣就對了。":
-       avg>0?"你平均慢了。多半是找鍵找太久——把速度降下來,讓手先記住位置。":
-             "你平均快了。不要搶在塊碰到線之前按。")+
-      (X().poly?'<br>三個音一起彈時只判斷時機,不判斷按對哪些鍵——那要用單音練習。':'')+
-      '</p>';
+    /* 建議文案是鋼琴自己的：慢了通常是「找鍵找太久」 */
+    var advice = st.onTime ? "時間差很小,這樣就對了。"
+      : st.late ? "你平均慢了。多半是找鍵找太久——把速度降下來,讓手先記住位置。"
+                : "你平均快了。不要搶在塊碰到線之前按。";
+    if(X().poly) advice+='<br>三個音一起彈時只判斷時機,不判斷按對哪些鍵——那要用單音練習。';
+    f.innerHTML=MP.timing.rowsHtml(st, extra, advice);
   }
 
   /* ---------- 控制 ---------- */
@@ -459,15 +416,17 @@
   function start(){
     A(); S.running=true;
     $("run").textContent="停止"; $("run").classList.add("on");
-    startT=ctx.currentTime+leadSec(); schedBeat=0; offsets=[]; prevRms=0; lastOn=-1;
-    timer=setInterval(schedule,40);
+    startT=ctx.currentTime+leadSec(); offsets.reset(); onset.reset();
+    if(!beatClock) beatClock=MP.clock.createBeatClock(ctx,{ahead:0.3,intervalMs:40});
+    beatClock.start(startT, spb, onBeat);
     raf=requestAnimationFrame(loop);
     paintFb();
   }
   function stop(){
     S.running=false;
     $("run").textContent="開始"; $("run").classList.remove("on");
-    clearInterval(timer); cancelAnimationFrame(raf);
+    if(beatClock) beatClock.stop();
+    cancelAnimationFrame(raf);
     draw(0);
   }
   function restart(){ if(S.running){ stop(); start(); } else draw(0); }

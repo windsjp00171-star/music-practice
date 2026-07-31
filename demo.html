@@ -101,9 +101,17 @@
 
 </div>
 
+<script src="shared/chords.js"></script>
+<script src="shared/pitch.js"></script>
+<script src="shared/audio.js"></script>
 <script>
 (function(){
   "use strict";
+
+  if(!window.MP||!MP.chords||!MP.pitch||!MP.audio){
+    document.body.innerHTML='<p style="max-width:640px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/chords.js、shared/pitch.js、shared/audio.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+    return;
+  }
   var SVGNS="http://www.w3.org/2000/svg";
   var $=function(id){ return document.getElementById(id); };
   function mk(t,a){ var e=document.createElementNS(SVGNS,t); for(var k in a) e.setAttribute(k,a[k]); return e; }
@@ -124,72 +132,37 @@
     if(ctx.state==="suspended") ctx.resume();
     return ctx;
   }
-  function mtof(m){ return 440*Math.pow(2,(m-69)/12); }
+  var mtof=MP.pitch.mtof;
 
-  function pluck(freq,t,dur,v){
-    var o=ctx.createOscillator(), f=ctx.createBiquadFilter(), g=ctx.createGain();
-    o.type="sawtooth"; o.frequency.value=freq;
-    f.type="lowpass";
-    f.frequency.setValueAtTime(Math.min(freq*9,11000),t);
-    f.frequency.exponentialRampToValueAtTime(Math.max(freq*1.6,180),t+dur*0.7);
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(v,t+0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-    o.connect(f); f.connect(g); g.connect(master);
-    o.start(t); o.stop(t+dur+0.05);
+  /* 音色改成先算取樣緩衝再播（shared/audio.js，參數移植自 PitchPal）。
+     吉他是真正的 Karplus–Strong，用 oscillator 做不出來。
+     GAIN 是把單音壓到能同時疊好幾個而不爆掉的係數。 */
+  var GAIN={ guitar:0.28, piano:0.22 };
+  function pluck(freq,t,dur){
+    MP.audio.playNote("guitar",ctx,master,freq,t,dur,{gain:GAIN.guitar});
   }
-
-  function key(freq,t,dur,v){
-    [1,2,3,5].forEach(function(h,i){
-      var o=ctx.createOscillator(), g=ctx.createGain();
-      o.type="sine"; o.frequency.value=freq*h;
-      var amp=v/(1+h*h*0.55);
-      g.gain.setValueAtTime(0.0001,t);
-      g.gain.exponentialRampToValueAtTime(amp,t+0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(0.12,dur*(1-i*0.14)));
-      o.connect(g); g.connect(master);
-      o.start(t); o.stop(t+dur+0.1);
-    });
+  function key(freq,t,dur){
+    MP.audio.playNote("piano",ctx,master,freq,t,dur,{gain:GAIN.piano});
   }
 
   /* ================= 吉他資料 ================= */
 
-  var OPEN=[40,45,50,55,59,64];
-  var G={
-    "A":  {frets:[null,0,2,2,2,0],fingers:[0,0,1,2,3,0]},
-    "Am": {frets:[null,0,2,2,1,0],fingers:[0,0,2,3,1,0]},
-    "C":  {frets:[null,3,2,0,1,0],fingers:[0,3,2,0,1,0]},
-    "D":  {frets:[null,null,0,2,3,2],fingers:[0,0,0,1,3,2]},
-    "Dm": {frets:[null,null,0,2,3,1],fingers:[0,0,0,2,3,1]},
-    "E":  {frets:[0,2,2,1,0,0],fingers:[0,2,3,1,0,0]},
-    "Em": {frets:[0,2,2,0,0,0],fingers:[0,2,3,0,0,0]},
-    "G":  {frets:[3,2,0,0,0,3],fingers:[2,1,0,0,0,3]}
-  };
+  var OPEN=MP.chords.GUITAR_TUNING;
+  /* 這個模組要示範哪幾個和弦。指型資料在 shared/chords.js。 */
+  var G={};
+  ["A","Am","C","D","Dm","E","Em","G"].forEach(function(k){ G[k]=MP.chords.GUITAR_SHAPES[k]; });
   var gFrom="A", gTo="D", gPhase=0, gRaf=null;
 
   function strum(name,t0){
     var d=G[name];
     d.frets.forEach(function(fr,s){
       if(fr===null) return;
-      pluck(mtof(OPEN[s]+fr), t0+s*0.028, 1.5, 0.16);
+      pluck(mtof(OPEN[s]+fr), t0+s*0.028, 1.5);
     });
   }
 
-  function fingerPos(d){
-    var m={};
-    d.frets.forEach(function(fr,s){
-      if(fr) m[d.fingers[s]]={s:s,f:fr};
-    });
-    return m;
-  }
-
-  function anchors(){
-    var a=fingerPos(G[gFrom]), b=fingerPos(G[gTo]), out=[];
-    Object.keys(a).forEach(function(f){
-      if(b[f] && b[f].s===a[f].s && b[f].f===a[f].f) out.push(f);
-    });
-    return out;
-  }
+  var fingerPos=MP.chords.fingerPositions;
+  function anchors(){ return MP.chords.commonFingers(G[gFrom],G[gTo]); }
 
   function animBoard(p){
     var W=210,SP=34,X0=22,Y0=48,FH=40,NF=4;
@@ -298,16 +271,13 @@
 
   /* ================= 鋼琴 ================= */
 
-  var P={
-    "C":{r:0,q:"maj"},"Dm":{r:2,q:"min"},"Em":{r:4,q:"min"},
-    "F":{r:5,q:"maj"},"G":{r:7,q:"maj"},"Am":{r:9,q:"min"},
-    "D":{r:2,q:"maj"},"A":{r:9,q:"maj"},"E":{r:4,q:"maj"}
-  };
+  /* 這個模組要示範哪幾個鋼琴和弦。root/quality 在 shared/chords.js。 */
+  var PIANO_LIST=["C","Dm","Em","F","G","Am","D","A","E"];
   var pProg=["C","G","Am","F"], pMode="sync", pRaf=null;
 
   function triad(n){
-    var d=P[n], iv=d.q==="maj"?[0,4,7]:[0,3,7];
-    return iv.map(function(i){ return 60+d.r+i; });
+    var d=MP.chords.PIANO_CHORDS[n];
+    return MP.chords.triad(d.root,d.q).map(function(s){ return 60+s; });
   }
 
   var MODES={
@@ -320,7 +290,7 @@
     audio();
     var t0=ctx.currentTime+0.08, step=1.0, m=MODES[pMode];
     pProg.forEach(function(n,i){
-      triad(n).forEach(function(mi){ key(mtof(mi),t0+i*step,m.dur,0.13); });
+      triad(n).forEach(function(mi){ key(mtof(mi),t0+i*step,m.dur); });
     });
     animate(t0,step*pProg.length);
   }
@@ -384,13 +354,13 @@
     c1.innerHTML='<h2>先聽三和弦</h2><p class="body">'+
       '按下去之前先知道它該長什麼樣。聽完再彈，你會馬上知道自己有沒有按錯鍵。</p>';
     var row1=document.createElement("div"); row1.className="btnrow";
-    Object.keys(P).forEach(function(n){
+    PIANO_LIST.forEach(function(n){
       var bt=document.createElement("button");
       bt.className="btn alt"; bt.textContent=n;
       bt.style.fontFamily="Archivo, sans-serif"; bt.style.fontWeight="700";
       bt.addEventListener("click",function(){
         audio(); var t=ctx.currentTime+0.05;
-        triad(n).forEach(function(m){ key(mtof(m),t,2.2,0.14); });
+        triad(n).forEach(function(m){ key(mtof(m),t,2.2); });
       });
       row1.appendChild(bt);
     });

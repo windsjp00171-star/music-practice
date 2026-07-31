@@ -315,6 +315,7 @@
   <p class="capo hidden" id="capo"></p>
 </section>
 
+<script src="shared/chords.js"></script>
 <script src="shared/theory.js"></script>
 <script src="shared/audio.js"></script>
 <script src="shared/clock.js"></script>
@@ -322,8 +323,8 @@
 (function(){
   "use strict";
 
-  if(!window.MP||!MP.theory||!MP.audio||!MP.clock){
-    document.body.innerHTML='<p style="max-width:620px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/theory.js、shared/audio.js、shared/clock.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
+  if(!window.MP||!MP.chords||!MP.theory||!MP.audio||!MP.clock){
+    document.body.innerHTML='<p style="max-width:620px;margin:48px auto;padding:0 16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.9;color:#F2EFE6">共用檔案載入失敗（需要 shared/chords.js、shared/theory.js、shared/audio.js、shared/clock.js）。請確認這個 HTML 與 shared/ 資料夾放在同一層。</p>';
     return;
   }
 
@@ -374,25 +375,15 @@
       "font-size":size,"font-weight":700,fill:fill}); t.textContent=v; return t; }
 
   // 吉他指型：低音 E → 高音 e。null=不彈, 0=空弦
-  var SHAPES = {
-    "A":  { f:[null,0,2,2,2,0],   g:[0,0,1,2,3,0] },
-    "Am": { f:[null,0,2,2,1,0],   g:[0,0,2,3,1,0] },
-    "B":  { f:[null,2,4,4,4,2],   g:[0,1,2,3,4,1], barre:{from:1,to:5,fret:2} },
-    "Bm": { f:[null,2,4,4,3,2],   g:[0,1,3,4,2,1], barre:{from:1,to:5,fret:2} },
-    "C":  { f:[null,3,2,0,1,0],   g:[0,3,2,0,1,0] },
-    "D":  { f:[null,null,0,2,3,2],g:[0,0,0,1,3,2] },
-    "Dm": { f:[null,null,0,2,3,1],g:[0,0,0,2,3,1] },
-    "E":  { f:[0,2,2,1,0,0],      g:[0,2,3,1,0,0] },
-    "Em": { f:[0,2,2,0,0,0],      g:[0,2,3,0,0,0] },
-    "F":  { f:[null,null,3,2,1,1],g:[0,0,3,2,1,1], barre:{from:4,to:5,fret:1} },
-    "G":  { f:[3,2,0,0,0,3],      g:[2,1,0,0,0,3] }
-  };
-  var ROOT={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+  /* 指型資料在 shared/chords.js —— 跟 fingering.html 是同一份。
+     哪天調整某個和弦的按法，兩邊會一起變，不會各說各話。 */
+  var SHAPES = MP.chords.GUITAR_SHAPES;
+
+  /* 和弦名 → 三個音的音級，用 shared/theory.js 的和弦解析 */
   function triad(name){
-    var m=/^([A-G])(#|b)?(m)?/.exec(name); if(!m) return null;
-    var r=ROOT[m[1]]+(m[2]==="#"?1:m[2]==="b"?-1:0);
-    var iv=m[3]?[0,3,7]:[0,4,7];
-    return iv.map(function(i){ return ((r+i)%12+12)%12; });
+    var p = MP.theory.parseChordToken(name);
+    if(!p) return null;
+    return p.notes.map(function(n){ return ((n % 12) + 12) % 12; });
   }
 
   function fretboard(name){
@@ -404,7 +395,7 @@
       y2:Y0+FH*i,stroke:"var(--line)","stroke-width":1.2}));
     for(var j=0;j<6;j++) svg.appendChild(mk("line",{x1:X0+SP*j,y1:Y0,x2:X0+SP*j,
       y2:Y0+FH*NF,stroke:"var(--line)","stroke-width":1.2}));
-    d.f.forEach(function(fr,si){
+    d.frets.forEach(function(fr,si){
       var x=X0+SP*si,y=Y0-13;
       if(fr===null){
         var gg=mk("g",{stroke:"var(--dim)","stroke-width":1.5,"stroke-linecap":"round"});
@@ -419,12 +410,12 @@
     if(d.barre){ var br=d.barre;
       svg.appendChild(mk("rect",{x:X0+SP*br.from-7,y:Y0+FH*(br.fret-1)+FH/2-7,
         width:SP*(br.to-br.from)+14,height:14,rx:7,fill:"var(--paper)"})); }
-    d.f.forEach(function(fr,si){
+    d.frets.forEach(function(fr,si){
       if(!fr) return;
       var inB=d.barre&&si>=d.barre.from&&si<=d.barre.to&&fr===d.barre.fret;
       var cx=X0+SP*si, cy=Y0+FH*(fr-1)+FH/2;
       if(!inB) svg.appendChild(mk("circle",{cx:cx,cy:cy,r:7.5,fill:"var(--paper)"}));
-      svg.appendChild(svgText(cx,cy+3.4,d.g[si],9.5,"var(--ink)"));
+      svg.appendChild(svgText(cx,cy+3.4,d.fingers[si],9.5,"var(--ink)"));
     });
     return svg;
   }
