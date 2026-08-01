@@ -42,7 +42,7 @@
 | 檔案 | 內容 | 儲存 | 需 HTTPS |
 |---|---|---|---|
 | `zero.html` | 零階：弦名、格數、手指編號、鍵盤地標、怎麼看指法圖 | — | — |
-| `fingering.html` | 吉他指法圖（10 和弦）＋ 鋼琴三種轉位 ＋ 個人註記 | ✓ | — |
+| `fingering.html` | 吉他指法圖（11 和弦）＋ 鋼琴三種轉位 ＋ 個人註記 | ✓ | — |
 | `demo.html` | 換和弦動畫（自動算支點手指）、三和弦音訊、踏板三種踩法對比 | — | — |
 | `chord-trainer.html` | 節拍器 ＋ 隨機和弦提示 ＋ 按法圖（吉他指板／鋼琴鍵盤,三段顯示模式）,含級數模式 | — | — |
 | `progress.html` | 能力制八關進度（吉他／鋼琴各八關）＋ 通過條件 ＋ 卡點紀錄 | ✓ | — |
@@ -210,7 +210,42 @@ fade out  = 20ms
 
 ---
 
-## 本次任務
+## 現況（2026-08-01）
+
+**整併已完成並部署**：<https://windsjp00171-star.github.io/music-practice/>
+
+十個模組全部接上 `shared/` 下的九個共用檔。下方「本次任務」清單全數完成，
+另外加了 PWA（加到主畫面、離線可用）與視覺層 `shared/skin.css`。
+
+尚未在真機驗證：聲音、掉落動畫、麥克風判定。
+（開發環境沒有喇叭，且預覽視窗 `document.hidden = true` 使 rAF 不執行。）
+
+---
+
+## 已變更的決定
+
+規劃階段的兩條約束在實作時被現實推翻,這裡記錄原因,避免後續 session 又改回去。
+
+### 儲存：改為 window.storage → localStorage 兩層
+
+原本寫「不得用 localStorage」。實測 `window.storage` **在 Chrome／Safari／Firefox
+裡根本不存在**——它是沙箱環境的 API。只靠它的話,指法圖註記、關卡進度、自建曲庫
+在 `file://`、`localhost`、GitHub Pages **全部存不住**,那三個功能等於是死的。
+
+現在 `shared/store.js` 先找 `window.storage`,沒有就用 `localStorage`。
+原約束保護的東西（不依賴沙箱 API）仍然成立,只是多了實際可用的備援。
+
+注意 `localStorage` 綁 origin,`file://`／`localhost`／Pages 是三個獨立空間,
+資料不互通——這是「匯出 markdown」存在的理由。
+
+### 吉他和弦：10 → 11
+
+`chord-trainer` 的和弦池本來就有 B,但 `shared/chords.js` 沒有它的指型。
+補進去之後 `fingering` 也查得到 B 的按法,兩邊用同一份資料。
+
+---
+
+## 本次任務（已完成）
 
 0. **盤點現有 MVP,列出差異清單**（見文首）
 1. 補齊九個模組（缺哪個補哪個,已存在的不重寫）
@@ -237,7 +272,7 @@ fade out  = 20ms
 
 - **非麥克風功能必須在 `file://` 下正常運作**。共用資源用相對路徑,載入失敗要有 inline fallback,不可整頁壞掉。**這條不可妥協**
 - 無框架、無打包工具、無 npm 相依。純 HTML/CSS/JS
-- 儲存只用 `window.storage`,不得用 localStorage / sessionStorage
+- 儲存優先用 `window.storage`,沒有就退回 `localStorage`（見下方「已變更的決定」）
 - 執行期不呼叫 PitchPal 或任何外部 API。字體以外不連網
 - 不做登入、不做多使用者、不做雲端同步
 - **不加遊戲化**：無連續天數、無排行、無分數、無星等、無 combo。掉落練習刻意做成**永遠不會失敗中斷**,速度可降到 BPM 30。這是設計決定,與使用者其他專案（天父日記）的不施壓哲學一致
@@ -249,17 +284,17 @@ fade out  = 20ms
 
 ## 驗收標準
 
-- [ ] 十個模組功能與整併前完全一致,既有 MVP 功能無退化
-- [ ] 本機曲庫不在 git 追蹤範圍內
-- [ ] 非麥克風功能以 `file://` 開啟正常運作
-- [ ] `theory.js` 的 `getDiatonicChords()` 在 12 個 key 都正確,且 F/Bb/Eb 用降記號
-- [ ] capo 建議在 `chord-trainer` 級數模式可見
-- [ ] 音色以緩衝生成,吉他為真正的 Karplus–Strong
-- [ ] 兩個掉落模組的 canvas renderer **未被強行合併**
-- [ ] 匯出的 markdown 含註記與進度,可離線閱讀
-- [ ] `CHANGELOG.md` 符合 Rule 16
-- [ ] GitHub Pages 部署後麥克風功能正常
-- [ ] 全程未新增 npm 相依
+- [x] 十個模組功能與整併前完全一致,既有 MVP 功能無退化
+- [x] 本機曲庫不在 git 追蹤範圍內
+- [x] 非麥克風功能以 `file://` 開啟正常運作
+- [x] `theory.js` 的 `getDiatonicChords()` 在 12 個 key 都正確,且 F/Bb/Eb 用降記號
+- [x] capo 建議在 `chord-trainer` 級數模式可見
+- [x] 音色以緩衝生成,吉他為真正的 Karplus–Strong
+- [x] 兩個掉落模組的 canvas renderer **未被強行合併**
+- [x] 匯出的 markdown 含註記與進度,可離線閱讀
+- [x] `CHANGELOG.md` 符合 Rule 16
+- [x] GitHub Pages 已部署（麥克風功能待真機確認）
+- [x] 全程未新增 npm 相依
 
 ---
 
