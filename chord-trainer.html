@@ -235,13 +235,13 @@
   <div class="horizon">
     <div class="slot now">
       <div class="slot-label">現在</div>
-      <div class="glyph" id="now">—</div>
+      <div class="glyph" id="now"><span class="ph">—</span></div>
       <div class="answer" id="answer"></div>
     </div>
     <div class="divider"></div>
     <div class="slot next">
       <div class="slot-label">下一個</div>
-      <div class="glyph" id="next">—</div>
+      <div class="glyph" id="next"><span class="ph">—</span></div>
     </div>
   </div>
 
@@ -364,7 +364,9 @@
   /* ---------- 顯示 ---------- */
 
   function glyph(token){
-    if(!token) return "—";
+    /* 停止時的佔位符。直接印「—」在 190px 的字級下會變成一條大橫槓，
+       套個 class 讓 skin.css 縮小調暗。 */
+    if(!token) return '<span class="ph">—</span>';
     var m = /^([A-G][#b]?)(.*)$/.exec(token);
     if(m) return m[1] + (m[2] ? "<sup>"+m[2]+"</sup>" : "");
     var d = /^(\d)(.*)$/.exec(token);

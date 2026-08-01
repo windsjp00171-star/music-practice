@@ -137,7 +137,7 @@
 
   <div class="stage">
     <div class="lamps" id="lamps"></div>
-    <div class="glyph" id="now">—</div>
+    <div class="glyph" id="now"><span class="ph">—</span></div>
     <div class="nxt" id="nxt"></div>
   </div>
 
@@ -399,6 +399,7 @@
   /* ---------- 畫面 ---------- */
 
   function glyph(n){
+    if(!n || n==="—") return '<span class="ph">—</span>';
     var m=/^([A-G][#b]?)(.*)$/.exec(n);
     return m ? m[1]+(m[2]?"<sup>"+m[2]+"</sup>":"") : n;
   }
@@ -415,7 +416,7 @@
     for(var i=0;i<lp.length;i++)
       lp[i].className="lamp"+(i===q.beat?(q.beat===0?" hot down":" hot"):"");
     var sg=song();
-    if(q.bar<0){ $("now").textContent="準備"; $("nxt").textContent="下一個 "+sg.bars[0]; }
+    if(q.bar<0){ $("now").innerHTML='<span class="ph">準備</span>'; $("nxt").textContent="下一個 "+sg.bars[0]; }
     else{
       var bi=q.bar%sg.bars.length;
       $("now").innerHTML=glyph(sg.bars[bi]);
@@ -482,7 +483,7 @@
     $("run").textContent="開始"; $("run").classList.remove("on");
     if(beatClock) beatClock.stop();
     cancelAnimationFrame(raf); queue.length=0;
-    $("now").textContent="—"; $("nxt").textContent="";
+    $("now").innerHTML=glyph(null); $("nxt").textContent="";
     var lp=$("lamps").children;
     for(var i=0;i<lp.length;i++) lp[i].className="lamp";
     paintChart();
