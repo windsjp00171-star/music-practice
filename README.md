@@ -59,7 +59,7 @@ start chrome --new-window --incognito "https://windsjp00171-star.github.io/music
 | 模組 | 做什麼 | 需要麥克風 |
 |---|---|---|
 | `zero.html` | 弦名、格數、手指編號、鍵盤地標、指法圖怎麼看 | — |
-| `fingering.html` | 吉他十個指型、鋼琴三種轉位、個人註記 | — |
+| `fingering.html` | 吉他 11 個指型、鋼琴三種轉位、個人註記 | — |
 | `demo.html` | 換和弦動畫（自動算支點手指）、三和弦音訊、踏板三種踩法對比 | — |
 | `chord-trainer.html` | 節拍器 ＋ 隨機和弦提示，含級數模式與 capo 建議 | — |
 | `progress.html` | 能力制八關進度 ＋ 通過條件 ＋ 卡點紀錄 ＋ 匯出 | — |
@@ -75,38 +75,27 @@ start chrome --new-window --incognito "https://windsjp00171-star.github.io/music
 
 `index.html` 上方可以選木吉他或鋼琴，它會把選擇寫進下面的模組連結（`?inst=piano`）。
 
-- `zero`、`fingering`、`demo`、`progress` 會拿它當預設樂器，頁內的切換仍然隨時可改
-- `chord-trainer`、`playalong`、`listen` 不分樂器，但會把參數原樣帶回 index，來回切換不會被重設
+- `zero`、`fingering`、`demo`、`progress`、`chord-trainer` 會拿它當預設樂器，
+  頁內的切換仍然隨時可改
+- 其餘模組不分樂器，但會把參數原樣帶回 index，來回切換不會被重設
 
 用 URL 參數而不是儲存，是因為 `file://` 下沒有可用的儲存。
 
 ### 麥克風功能需要 HTTPS
 
-瀏覽器只在 `https://` 或 `localhost` 給麥克風權限，`file://` 拿不到——這是硬性安全規則，
-不是設定問題。要用 `listen.html`，二選一：
-
-本機測試：
-
-```bash
-python3 -m http.server 8000
-```
-
-然後開 `http://localhost:8000`。
-
-或部署到 GitHub Pages（見下）。
+瀏覽器只在 `https://` 或 `localhost` 給麥克風權限，`file://` 拿不到——
+這是硬性安全規則，不是設定問題。線上版是 HTTPS，麥克風可以正常用。
 
 ---
 
-## 部署到 GitHub Pages
+## 部署
 
-純靜態，無後端，無建置流程。
+已部署在 GitHub Pages：<https://windsjp00171-star.github.io/music-practice/>
 
-1. 把整個資料夾推到 GitHub repo。
-2. repo → **Settings** → **Pages**。
-3. Source 選 **Deploy from a branch**，branch 選 `main`，資料夾選 `/ (root)`。
-4. 存檔，等一兩分鐘，網址會是 `https://<帳號>.github.io/<repo>/`。
+純靜態、無後端、無建置流程。`git push` 後自動重建，見「啟動指令」。
 
-`.nojekyll` 已經放好了，不需要其他設定。
+平板可從 Chrome 選「加到主畫面」，之後用桌面圖示開啟會是全螢幕，
+且第一次連過網路後就能離線使用（`sw.js`）。
 
 ---
 
@@ -135,7 +124,8 @@ zero / fingering / demo / chord-trainer / progress / listen /
 playalong / falling / falling-guitar / songs .html
 shared/
   tokens.css          設計 token
-  clock.js            lookahead 排程器、時間軸幾何
+  skin.css            視覺層（掛在各頁 style 之後）
+  clock.js            lookahead 排程器、圓角矩形
   timing.js           音頭偵測、時間差統計
   stages.js           八關關卡資料
   theory.js           樂理計算（順階和弦、capo、和弦解析）
@@ -165,7 +155,8 @@ shared/
 - 執行期不呼叫任何外部 API。字體以外不連網。
 - 不做登入、不做多使用者、不做雲端同步。
 - **不加遊戲化**：無連續天數、無排行、無分數、無星等。這是刻意的設計決定。
-- **曲庫版權界線**：只收 1929 年前的公有領域聖詩。
+- **曲庫版權界線**：repo 內建曲目只收公有領域作品；自己的譜用「我的曲目」輸入，
+  只存在本機，不進 repo（已寫進 `.gitignore`）。
 
 ---
 
@@ -176,7 +167,7 @@ shared/
 | 判斷 | 可靠度 | 處理 |
 |---|---|---|
 | 單音音高 | 高 | 調音器、認音、逐弦檢查 |
-| 彈奏時機（onset） | 高 | `playalong` 的時間差回饋 |
+| 彈奏時機（onset） | 高 | `playalong` 與兩個掉落練習的時間差回饋 |
 | 根音是否落在和弦內 | 中 | `playalong` 顯示，並標明僅為粗略檢查 |
 | 整個和弦是否乾淨 | 低 | **不做即時判斷**，改由 `listen.html` 逐弦檢查 |
 
