@@ -97,6 +97,24 @@
   .song button:hover{ color:var(--paper); border-color:var(--dim); }
   .empty{ font-size:12.5px; color:var(--dim); line-height:1.7; }
   .status{ font-size:11.5px; color:var(--dim); margin-top:12px; display:block; }
+  .hidden{ display:none !important; }
+  .linkbox{
+    margin-top:14px; padding:13px;
+    background:rgba(233,166,60,.09); border-left:2px solid var(--amber);
+    border-radius:0 8px 8px 0;
+  }
+  .linkbox p{ font-size:12.5px; line-height:1.8; color:#E6DFCF; margin-bottom:10px; }
+  .linkbox b{ color:var(--amber); }
+  .linkbox textarea{
+    font-family:"Archivo",monospace; font-size:11px; line-height:1.5;
+    word-break:break-all; min-height:auto;
+  }
+  .gotlink{
+    margin-top:14px; padding:12px 14px;
+    background:rgba(95,191,143,.12); border-left:2px solid var(--good);
+    border-radius:0 8px 8px 0; font-size:13px; line-height:1.8; color:#D6E8DF;
+  }
+  .gotlink b{ color:var(--good); }
 </style>
 <link rel="stylesheet" href="shared/skin.css">
 </head>
@@ -163,8 +181,19 @@
     <h2>已存曲目</h2>
     <div id="list"></div>
     <div class="btnrow">
-      <button class="btn alt" id="exp" type="button">匯出備份</button>
-      <button class="btn alt" id="imp" type="button">匯入</button>
+      <button class="btn" id="link" type="button">產生同步連結</button>
+      <button class="btn alt" id="exp" type="button">匯出檔案</button>
+      <button class="btn alt" id="imp" type="button">從檔案匯入</button>
+      <input type="file" id="impfile" accept=".json,application/json" style="display:none">
+    </div>
+    <div id="linkbox" class="linkbox hidden">
+      <p>把這個網址在<b>另一台裝置</b>打開，曲目就會進去。<br>
+         資料在網址本身裡，沒有經過任何伺服器。</p>
+      <textarea id="linkout" readonly rows="3"></textarea>
+      <div class="btnrow">
+        <button class="btn alt" id="linkcopy" type="button">複製</button>
+        <button class="btn alt" id="linkclose" type="button">關閉</button>
+      </div>
     </div>
     <span class="status" id="status">載入中…</span>
   </div>
@@ -302,7 +331,85 @@
     });
   }
 
-  /* ---------- 匯出入 ---------- */
+  /* ---------- 跨裝置同步 ----------
+     曲目存在瀏覽器的 localStorage，而 localStorage 綁 origin 也綁裝置——
+     在電腦上輸入的東西，平板看不到。
+
+     解法是把整份曲庫塞進網址的 hash：在另一台裝置打開那個網址就進去了。
+     用 hash（#）而不是查詢字串（?），資料不會送到伺服器，
+     也不會被記進伺服器日誌。 */
+
+  function b64enc(str){
+    var bytes = new TextEncoder().encode(str), bin = "";
+    bytes.forEach(function(b){ bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  }
+  function b64dec(str){
+    var t = str.replace(/-/g,"+").replace(/_/g,"/");
+    var bin = atob(t), bytes = new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  function makeLink(){
+    var payload = b64enc(JSON.stringify(state.songs));
+    return location.origin + location.pathname + "#s=" + payload;
+  }
+
+  $("link").addEventListener("click",function(){
+    if(!state.songs.length){ alert("還沒有曲目可以同步。"); return; }
+    var url = makeLink();
+    $("linkout").value = url;
+    $("linkbox").classList.remove("hidden");
+    $("status").textContent = "連結已產生（" + state.songs.length + " 首，" +
+      Math.round(url.length/1024*10)/10 + " KB）";
+  });
+  $("linkcopy").addEventListener("click",function(){
+    var ta=$("linkout"); ta.select(); ta.setSelectionRange(0, 999999);
+    var ok=false;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(function(){
+        $("status").textContent="已複製";
+      }).catch(function(){ $("status").textContent="複製失敗，請手動選取"; });
+      ok=true;
+    }
+    if(!ok){ try{ document.execCommand("copy"); $("status").textContent="已複製"; }
+             catch(e){ $("status").textContent="請手動選取複製"; } }
+  });
+  $("linkclose").addEventListener("click",function(){
+    $("linkbox").classList.add("hidden");
+  });
+
+  /* 開啟時如果網址帶了曲庫，就併進來。用 id 去重，重開同一個連結不會變兩份。 */
+  function importFromHash(){
+    var m = /[#&]s=([A-Za-z0-9\-_]+)/.exec(location.hash);
+    if(!m) return false;
+    var arr;
+    try{ arr = JSON.parse(b64dec(m[1])); }catch(e){ return false; }
+    if(!Array.isArray(arr) || !arr.length) return false;
+
+    var have = {};
+    state.songs.forEach(function(x){ have[x.id] = true; });
+    var added = 0;
+    arr.forEach(function(rec){
+      if(!rec || !rec.id || have[rec.id]) return;
+      state.songs.push(rec); have[rec.id] = true; added++;
+    });
+
+    history.replaceState(null, "", location.pathname);   // 網址清乾淨，免得重複匯入
+
+    var box = document.createElement("div");
+    box.className = "gotlink";
+    box.innerHTML = added
+      ? "<b>已從連結收到 " + added + " 首。</b>下面看得到，「跟著彈」與掉落練習也會出現。"
+      : "<b>這個連結的曲目已經在這台裝置上了。</b>沒有重複加入。";
+    $("list").parentNode.insertBefore(box, $("list"));
+
+    if(added) save();
+    return added > 0;
+  }
+
+  /* ---------- 檔案匯出入 ---------- */
   $("exp").addEventListener("click",function(){
     var blob=new Blob([JSON.stringify(state.songs,null,2)],{type:"application/json"});
     var a=document.createElement("a");
@@ -310,15 +417,25 @@
     a.download="songs-local.json";
     a.click(); URL.revokeObjectURL(a.href);
   });
-  $("imp").addEventListener("click",function(){
-    var txt=prompt("貼上先前匯出的 JSON：");
-    if(!txt) return;
-    try{
-      var arr=JSON.parse(txt);
-      if(!Array.isArray(arr)) throw 0;
-      state.songs=state.songs.concat(arr);
-      save(); paintList();
-    }catch(e){ alert("格式不對,要是匯出時的 JSON 陣列。"); }
+  /* 原本用 prompt() 貼 JSON，在平板上等於不能用。改成選檔案。 */
+  $("imp").addEventListener("click",function(){ $("impfile").click(); });
+  $("impfile").addEventListener("change",function(){
+    var f=this.files && this.files[0];
+    if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var arr=JSON.parse(r.result);
+        if(!Array.isArray(arr)) throw 0;
+        var have={}; state.songs.forEach(function(x){ have[x.id]=true; });
+        var n=0;
+        arr.forEach(function(rec){ if(rec && rec.id && !have[rec.id]){ state.songs.push(rec); have[rec.id]=true; n++; } });
+        save(); paintList();
+        $("status").textContent="從檔案匯入 "+n+" 首";
+      }catch(e){ alert("格式不對，要是「匯出檔案」產生的 JSON。"); }
+      this.value="";
+    }.bind(this);
+    r.readAsText(f);
   });
 
   /* ---------- 啟動 ---------- */
@@ -332,7 +449,10 @@
   $("bars").addEventListener("input",paintPreview);
   $("key").addEventListener("change",paintPreview);
 
-  setMode("degree"); paintPreview(); load();
+  setMode("degree"); paintPreview();
+  load();
+  /* load() 是非同步的，等它把既有曲目讀進來再併入連結帶來的，才能正確去重 */
+  setTimeout(function(){ if(importFromHash()) paintList(); }, 250);
 
   /* 這個模組不分樂器，但要把 index.html 的選擇原樣帶回去，返回後才不會被重設 */
   (function(){
