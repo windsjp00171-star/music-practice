@@ -280,6 +280,60 @@
   var PIANO_LIST=["C","Dm","Em","F","G","Am","D","A","E"];
   var pProg=["C","G","Am","F"], pMode="sync", pRaf=null;
 
+  /* ---------- 轉位 ----------
+     系統裡到處在用「轉位」（指法圖、第 5 關、掉落練習），
+     但沒有一個地方說它是什麼。這一段補上。 */
+
+  var WPC=[0,2,4,5,7,9,11], BPREV={1:0,3:1,6:3,8:4,10:5};
+
+  /* 把三個音畫在鍵盤上。lo 是畫面最左邊那個白鍵的半音值。 */
+  function miniKeys(notes, lo, oct){
+    var WW=20, WH=76, BW=13, BH=48, N=7*oct;
+    var svg=mk("svg",{viewBox:"0 0 "+(WW*N)+" "+(WH+4), width:WW*N});
+    var on={}; notes.forEach(function(m){ on[m]=true; });
+
+    for(var i=0;i<N;i++){
+      var semi=lo+Math.floor(i/7)*12+WPC[i%7];
+      svg.appendChild(mk("rect",{x:i*WW,y:0,width:WW-1.5,height:WH,rx:2.5,
+        fill:on[semi]?"var(--amber)":"var(--paper)"}));
+      if(on[semi]){
+        svg.appendChild(tx(i*WW+(WW-1.5)/2, WH-11, NOTE[semi%12],
+          {size:10,weight:800,mono:true,fill:"#241703"}));
+      }
+    }
+    for(var o=0;o<oct;o++){
+      [1,3,6,8,10].forEach(function(pc){
+        var idx=o*7+BPREV[pc], semi=lo+o*12+pc;
+        svg.appendChild(mk("rect",{x:idx*WW+WW-BW/2,y:0,width:BW,height:BH,rx:2,
+          fill:on[semi]?"var(--amber)":"var(--ink)"}));
+      });
+    }
+    return svg;
+  }
+
+  var NOTE=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  /* 原位 → 第一轉位 → 第二轉位：每次把最低音搬高八度 */
+  function inversionsOf(name){
+    var base=triad(name);
+    return [
+      { label:"原位",     notes:base.slice() },
+      { label:"第一轉位", notes:[base[1], base[2], base[0]+12] },
+      { label:"第二轉位", notes:[base[2], base[0]+12, base[1]+12] }
+    ];
+  }
+
+  /* C→F→G 用不用轉位的差別。回傳每個和弦的實際音高。 */
+  var VOICING={
+    root: { label:"全部用原位",
+            note:"手每次都要整個移過去。換和弦來不及，聽起來也一塊一塊的。",
+            chords:[[60,64,67],[65,69,72],[67,71,74]] },      // C / F / G
+    smooth:{ label:"用轉位 ✓",
+             note:"每個音都只走最短的距離，手幾乎不用移動。這就是第 6 關要的。",
+             chords:[[60,64,67],[60,65,69],[62,67,71]] }      // C / F/C / G/D
+  };
+  var vMode="smooth", invChord="C";
+
   function triad(n){
     var d=MP.chords.PIANO_CHORDS[n];
     return MP.chords.triad(d.root,d.q).map(function(s){ return 60+s; });
@@ -371,6 +425,110 @@
     });
     c1.appendChild(row1);
     b.appendChild(c1);
+
+    /* ---- 轉位 ---- */
+    var ci=document.createElement("div"); ci.className="card";
+    ci.innerHTML='<h2>轉位是什麼</h2><p class="body">'+
+      '和弦就是幾個音。<b>同樣那幾個音，誰在最下面</b>，決定它是第幾轉位——'+
+      '音沒變，還是同一個和弦。<br>'+
+      '推法：把<em>最下面的音搬到最上面</em>（高八度），就得到下一個轉位。</p>';
+
+    var invSel=document.createElement("div"); invSel.className="picker";
+    var invLab=document.createElement("label"); invLab.textContent="和弦";
+    var invS=document.createElement("select");
+    ["C","F","G","Am","Dm","Em"].forEach(function(n){
+      var o=document.createElement("option"); o.value=n; o.textContent=n;
+      if(n===invChord) o.selected=true; invS.appendChild(o);
+    });
+    invS.addEventListener("change",function(){ invChord=invS.value; pianoPanel(); });
+    invSel.appendChild(invLab); invSel.appendChild(invS);
+    ci.appendChild(invSel);
+
+    var invBox=document.createElement("div"); invBox.className="diagrams";
+    invBox.style.cssText="display:flex;flex-wrap:wrap;gap:18px;justify-content:center;margin-top:14px";
+    inversionsOf(invChord).forEach(function(v){
+      var w=document.createElement("div"); w.style.textAlign="center";
+      w.appendChild(miniKeys(v.notes, 60, 2));
+      var l=document.createElement("div");
+      l.style.cssText="font-size:11.5px;color:var(--dim);letter-spacing:.1em;margin-top:7px";
+      l.textContent=v.label+"　最低音 "+NOTE[v.notes[0]%12];
+      w.appendChild(l);
+      var bt=document.createElement("button");
+      bt.className="btn alt"; bt.textContent="♪ 聽";
+      bt.style.cssText="margin-top:8px;padding:7px 16px";
+      bt.addEventListener("click",function(){
+        audio(); var t=ctx.currentTime+0.05;
+        v.notes.forEach(function(m){ key(mtof(m),t,2.2); });
+      });
+      w.appendChild(bt);
+      invBox.appendChild(w);
+    });
+    ci.appendChild(invBox);
+
+    var iw=document.createElement("div"); iw.className="warn";
+    iw.innerHTML="<b>三個聽起來都是同一個和弦</b>，只是厚薄跟重心不同。"+
+      "沒聽出差別是正常的——轉位的用處不在音色，在下面這件事。";
+    ci.appendChild(iw);
+    b.appendChild(ci);
+
+    /* ---- 轉位有什麼用 ---- */
+    var cv=document.createElement("div"); cv.className="card";
+    cv.innerHTML='<h2>轉位有什麼用：讓手不要跳來跳去</h2><p class="body">'+
+      '同樣是 <b>C → F → G</b>，兩種彈法聽聽看，也看看手要移多遠。</p>';
+
+    var vseg=document.createElement("div"); vseg.className="seg";
+    Object.keys(VOICING).forEach(function(k){
+      var bt=document.createElement("button");
+      bt.type="button"; bt.textContent=VOICING[k].label;
+      bt.setAttribute("aria-pressed", k===vMode?"true":"false");
+      bt.addEventListener("click",function(){ vMode=k; pianoPanel(); });
+      vseg.appendChild(bt);
+    });
+    cv.appendChild(vseg);
+
+    var vbox=document.createElement("div");
+    vbox.style.cssText="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:14px";
+    ["C","F","G"].forEach(function(nm,i){
+      var w=document.createElement("div"); w.style.textAlign="center";
+      w.appendChild(miniKeys(VOICING[vMode].chords[i], 60, 2));
+      var l=document.createElement("div");
+      l.style.cssText="font-family:Archivo,sans-serif;font-weight:700;font-size:13px;margin-top:7px";
+      l.textContent=nm;
+      w.appendChild(l);
+      vbox.appendChild(w);
+    });
+    cv.appendChild(vbox);
+
+    var vc=document.createElement("p"); vc.className="cap";
+    vc.style.marginTop="10px";
+    vc.textContent=VOICING[vMode].note;
+    cv.appendChild(vc);
+
+    var vrow=document.createElement("div"); vrow.className="btnrow";
+    var vb=document.createElement("button");
+    vb.className="btn"; vb.textContent="▶ 播放 C – F – G";
+    vb.addEventListener("click",function(){
+      audio();
+      var bufs=VOICING[vMode].chords.map(function(ch){
+        return ch.map(function(m){ return MP.audio.noteBuffer("piano",ctx,mtof(m),1.6); });
+      });
+      var t=ctx.currentTime+0.08;
+      bufs.forEach(function(ch,i){
+        ch.forEach(function(bf){
+          MP.audio.playBuffer(ctx,master,bf,t+i*1.1,
+            {cutoff:MP.audio.LOWPASS.piano, gain:GAIN.piano});
+        });
+      });
+    });
+    vrow.appendChild(vb);
+    cv.appendChild(vrow);
+
+    var vw=document.createElement("div"); vw.className="warn";
+    vw.innerHTML="<b>怎麼自己找？</b>下一個和弦要按的三個音裡，"+
+      "<em>有哪個音是現在就按著的？那個手指不要動</em>，其他手指移到最近的位置。"+
+      "這跟吉他找支點手指是同一件事。";
+    cv.appendChild(vw);
+    b.appendChild(cv);
 
     var c2=document.createElement("div"); c2.className="card";
     c2.innerHTML='<h2>延音踏板的時機</h2><p class="body">'+
