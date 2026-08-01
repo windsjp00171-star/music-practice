@@ -9,6 +9,49 @@
 
 ---
 
+## 啟動指令
+
+### 平常練習 —— 不用指令
+
+瀏覽器開 <https://windsjp00171-star.github.io/music-practice/>，
+平板已「加到主畫面」的話點桌面圖示即可。
+
+### 改完程式要上線
+
+```powershell
+cd "C:\Users\user\Desktop\富毅共享資料夾\程式\MUSIC PRACTICE"; git add -A; git commit -m "改了什麼"; git push
+```
+
+推上去約 30 秒後 GitHub Pages 自動重建生效。快取是網路優先，
+**不需要**再改 `sw.js` 的 VERSION。
+
+### 本機預覽
+
+```powershell
+cd "C:\Users\user\Desktop\富毅共享資料夾\程式\MUSIC PRACTICE"; python -m http.server 8000
+```
+
+開 `http://localhost:8000`，`Ctrl+C` 停止。
+
+> **本機預覽與線上版的資料是分開的**（不同 origin）。
+> 真正的練習紀錄只在線上版累積，本機只拿來看畫面。
+
+### 改了畫面卻沒變
+
+多半是瀏覽器快取。用無痕視窗確認是程式沒改到還是快取問題：
+
+```powershell
+start chrome --new-window --incognito "https://windsjp00171-star.github.io/music-practice/"
+```
+
+查部署狀態（回 `built` 即完成）：
+
+```powershell
+& "C:\Program Files\GitHub CLI\gh.exe" api repos/windsjp00171-star/music-practice/pages --jq .status
+```
+
+---
+
 ## 怎麼用
 
 從 `index.html` 進去。
