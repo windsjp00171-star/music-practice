@@ -70,6 +70,19 @@
     return TRIAD_INTERVALS[q].map(function(iv){ return root + iv; });
   }
 
+  /* 左手：初學階段就是彈根音一個音，用小指（5）。
+     兩手的編號都是 1 拇指 → 5 小指，但方向相反——
+     右手小指在高音side，左手小指在低音side。所以左手彈低音用 5。
+
+     進階一點會加五度（5 和 1 兩根手指），這裡先給根音，
+     第二個是想加的時候的參考。 */
+  function leftHand(root){
+    return {
+      root:  { note: root, finger: 5, label:"根音（先只練這個）" },
+      fifth: { note: root + 7, finger: 1, label:"加五度（之後再說）" }
+    };
+  }
+
   function voicings(root, q){
     var base = triad(root, q);
     var out = [
@@ -110,6 +123,7 @@
     PIANO_CHORDS: PIANO_CHORDS,
     TRIAD_INTERVALS: TRIAD_INTERVALS,
     triad: triad,
+    leftHand: leftHand,
     voicings: voicings,
     fingerPositions: fingerPositions,
     commonFingers: commonFingers

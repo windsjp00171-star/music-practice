@@ -74,6 +74,19 @@
   .desc{ font-size:12.5px; color:var(--dim); line-height:1.7; margin-bottom:14px; }
 
   .diagrams{ display:flex; flex-wrap:wrap; gap:22px; justify-content:center; }
+  .handlabel{
+    font-size:11.5px; font-weight:700; color:var(--paper);
+    letter-spacing:.1em; margin:16px 0 9px;
+    display:flex; align-items:baseline; gap:9px; flex-wrap:wrap;
+  }
+  .handlabel span{ font-weight:400; font-size:11px; color:var(--dim); letter-spacing:.02em; }
+  .handtip{
+    width:100%; margin-top:16px; padding:11px 13px;
+    background:rgba(233,166,60,.09); border-left:2px solid var(--amber);
+    border-radius:0 7px 7px 0; font-size:12.5px; line-height:1.8; color:#E6DFCF;
+  }
+  .handtip b{ color:var(--amber); font-weight:700; }
+  .desc b{ color:var(--paper); font-weight:500; }
   .dwrap{ text-align:center; }
   .dlabel{ font-size:11.5px; color:var(--dim); letter-spacing:.1em; margin-top:8px; }
   svg{ display:block; }
@@ -126,8 +139,9 @@
   var GUITAR = MP.chords.GUITAR_SHAPES;
   var PIANO  = MP.chords.PIANO_CHORDS;
 
-  var PIANO_DESC = "右手三個音。下面三個都是同一個和弦，只是最低音不同——" +
-    "不知道轉位是什麼、有什麼用，先去「示範 · 聲音與動作」的鋼琴分頁看，那裡有解釋跟對照。";
+  var PIANO_DESC = "伴奏是兩手分工：<b>左手彈根音一個音</b>（低音，用小指），" +
+    "<b>右手彈三個音的和弦</b>。先分開練熟，再合起來——那是第 4 關。<br>" +
+    "右手的三種排法叫轉位，不知道是什麼、有什麼用，去「示範」的鋼琴分頁看。";
 
   var inst = /[?&]inst=piano/.test(location.search) ? "piano" : "guitar";
 
@@ -264,6 +278,14 @@
 
   var voicings = MP.chords.voicings;
 
+  /* 左手就是一個根音。直接重用上面的 keyboard()——
+     它本來就吃 (音, 手指) 兩個陣列，不需要另寫一份繪圖。
+     +12 是把音畫在第二個八度，位置比較居中好看。 */
+  function leftKeyboard(root){
+    var lh = MP.chords.leftHand(root);
+    return keyboard([lh.root.note + 12], [lh.root.finger]);
+  }
+
   /* ---------- 儲存 ---------- */
 
   function save(){
@@ -314,7 +336,7 @@
 
     var p = document.createElement("p");
     p.className = "desc";
-    p.textContent = inst === "guitar" ? d.desc : PIANO_DESC;
+    if(inst === "guitar") p.textContent = d.desc; else p.innerHTML = PIANO_DESC;
     card.appendChild(p);
 
     var box = document.createElement("div");
@@ -330,6 +352,35 @@
       w.appendChild(l);
       box.appendChild(w);
     } else {
+      /* 左手 */
+      var lhRow = document.createElement("div");
+      lhRow.style.cssText = "width:100%";
+      var lhHead = document.createElement("div");
+      lhHead.className = "handlabel";
+      lhHead.innerHTML = "左手　<span>低音，一個音就夠。小指 = 5</span>";
+      lhRow.appendChild(lhHead);
+      var lhBox = document.createElement("div");
+      lhBox.className = "diagrams";
+      var lw = document.createElement("div");
+      lw.className = "dwrap";
+      lw.appendChild(leftKeyboard(d.root));
+      var ll = document.createElement("div");
+      ll.className = "dlabel";
+      ll.textContent = "根音 " + name.replace(/m$|dim$/, "");
+      lw.appendChild(ll);
+      lhBox.appendChild(lw);
+      lhRow.appendChild(lhBox);
+      box.appendChild(lhRow);
+
+      /* 右手 */
+      var rhRow = document.createElement("div");
+      rhRow.style.cssText = "width:100%";
+      var rhHead = document.createElement("div");
+      rhHead.className = "handlabel";
+      rhHead.innerHTML = "右手　<span>三個音的和弦。拇指 = 1，小指 = 5</span>";
+      rhRow.appendChild(rhHead);
+      var rhBox = document.createElement("div");
+      rhBox.className = "diagrams";
       voicings(d.root, d.q).forEach(function(v){
         var w2 = document.createElement("div");
         w2.className = "dwrap";
@@ -338,8 +389,16 @@
         l2.className = "dlabel";
         l2.textContent = v.label;
         w2.appendChild(l2);
-        box.appendChild(w2);
+        rhBox.appendChild(w2);
       });
+      rhRow.appendChild(rhBox);
+      box.appendChild(rhRow);
+
+      var tip = document.createElement("div");
+      tip.className = "handtip";
+      tip.innerHTML = "兩手的編號都是 <b>1 拇指 → 5 小指</b>，但方向相反：" +
+        "右手小指在高音側，左手小指在低音側。所以<b>左手彈低音用小指</b>。";
+      box.appendChild(tip);
     }
     card.appendChild(box);
 
