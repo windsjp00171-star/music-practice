@@ -10,9 +10,10 @@
 
 ### Added
 
-- `shared/clock.js` — lookahead 排程器與時間軸幾何。`chord-trainer`、`playalong`、
-  `falling`、`falling-guitar` 四個模組原本各有一份 `setInterval` 排程迴圈，現在共用。
-  另含兩個掉落模組共用的「時間 → 螢幕座標」換算與圓角矩形。
+- `shared/clock.js` — lookahead 排程器。`chord-trainer`、`playalong`、`falling`、
+  `falling-guitar` 四個模組原本各有一份 `setInterval` 排程迴圈，現在共用。
+  另含兩個掉落模組共用的圓角矩形繪製。
+  （時間→座標換算刻意沒抽出來：那是三行算式，抽掉只會多一層轉手。）
 - `shared/timing.js` — 音頭偵測、時間差統計、回饋列。`playalong` 與兩個掉落模組共用。
 - `shared/stages.js` — 八關關卡資料，`progress` 與 `index` 的匯出共用。
 - `index.html` 補齊十個模組導航，新增「今天練什麼」樂器選擇：
@@ -63,7 +64,7 @@
 依 HANDOFF 的判準：**共用「什麼時候」，不共用「畫成什麼樣」**。
 
 - 兩個掉落模組的 canvas renderer **未合併**。鋼琴的黑白鍵幾何與吉他的六弦道
-  各自留在自己的檔案裡。共用的只有排程、時間軸換算與圓角矩形。
+  各自留在自己的檔案裡。共用的只有排程與圓角矩形。
 - 回饋建議文案**未合併**。鋼琴慢了是「找鍵找太久」，吉他慢了是「換和弦來不及」，
   那是兩件不同的事。共用的只有統計與列的呈現。
 

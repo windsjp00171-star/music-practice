@@ -1,18 +1,18 @@
-/* shared/clock.js — lookahead 排程器與時間軸幾何
+/* shared/clock.js — lookahead 排程器
 
    四個模組都要「提前一點把聲音排進 Web Audio 的時間軸」：
    chord-trainer、playalong、falling、falling-guitar。
    setTimeout 的精度不足以直接當節拍器，正確做法是用 setInterval 定期
    往前看一小段，把該響的東西用絕對時間排好，交給音訊執行緒去準時播。
 
-   這裡也放兩個掉落模組共用的「時間 → 螢幕座標」換算。
-   注意界線：共用的是「什麼時候」，不是「畫成什麼樣」。
+   界線：共用的是「什麼時候」，不是「畫成什麼樣」。
    鋼琴的黑白鍵幾何與吉他的六弦道各自留在自己的檔案裡。
+   時間→座標的換算（spb / leadSec / pps）刻意留在各自模組——
+   那是三行算式，抽出來只會多一層轉手，不會比較好改。
 
    對外：window.MP.clock
      createBeatClock(ctx, opts)  → { start, stop, isRunning }
        start(firstBeatTime, getSpb, onBeat)   onBeat(index, time)
-     timeline(opts)              → { spb, leadSec, pps, yAt, beatLines }
      roundRect(g, x, y, w, h, r)
 */
 (function(global){
@@ -56,31 +56,6 @@
     };
   }
 
-  /* ---------- 時間軸幾何（兩個掉落模組共用） ---------- */
-
-  /* getBpm / getLead 傳函式，因為使用者會在播放中調整 */
-  function timeline(o){
-    var api = {
-      spb: function(){ return 60 / o.getBpm(); },
-      leadSec: function(){ return o.getLead() * api.spb(); },
-      /* 每秒掉幾個像素：前導拍數要正好填滿判定線以上的高度 */
-      pps: function(){ return o.hitY / api.leadSec(); },
-      /* 某個絕對時刻在畫面上的 y。t 是「相對於起始時刻」的秒數 */
-      yAt: function(eventT, t){ return o.hitY - (eventT - t) * api.pps(); },
-      /* 目前畫面上看得到的拍線 y 座標 */
-      beatLines: function(t, count){
-        var sp = api.spb(), P = api.pps(), out = [];
-        for(var k = 0; k <= count; k++){
-          var bt = Math.ceil(t / sp) * sp + k * sp;
-          var y = o.hitY - (bt - t) * P;
-          if(y >= 0 && y <= o.hitY) out.push(y);
-        }
-        return out;
-      }
-    };
-    return api;
-  }
-
   /* 圓角矩形。兩個掉落模組畫塊都要用，跟樂器無關。 */
   function roundRect(g, x, y, w, h, r){
     g.beginPath();
@@ -95,7 +70,6 @@
 
   MP.clock = {
     createBeatClock: createBeatClock,
-    timeline: timeline,
     roundRect: roundRect
   };
 })(window);
