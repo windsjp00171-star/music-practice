@@ -50,7 +50,14 @@
     "dim7":[0,3,6,9],  "dim":[0,3,6],        "aug":[0,4,8],
     "m7":[0,3,7,10],   "m9":[0,3,7,10,14],
     "7":[0,4,7,10],    "9":[0,4,7,10,14],
-    "2":[0,2,4,7],     "m":[0,3,7],          "":[0,4,7]
+    "2":[0,2,4,7],     "m":[0,3,7],          "":[0,4,7],
+
+    /* 敬拜和弦譜常見的延伸音。6/9 要放在 root 比對之前處理，
+       否則 "/" 會被當成分數和弦的分隔而切掉後半。 */
+    "6":[0,4,7,9],     "6/9":[0,4,7,9,14],   "69":[0,4,7,9,14],
+    "m6":[0,3,7,9],    "m11":[0,3,7,10,14,17],
+    "7sus4":[0,5,7,10], "11":[0,4,7,10,14,17], "13":[0,4,7,10,14,21],
+    "add11":[0,4,5,7]
   };
 
   /* 比對 root 時兩字元音名必須排在單字元前面，
@@ -124,12 +131,25 @@
       .sort(function(a,b){ return a.capo - b.capo; });
   }
 
+  /* token 是否剛好等於「根音 + 已知性質」 */
+  function matchWhole(t){
+    for(var i = 0; i < ROOT_TOKENS.length; i++){
+      if(t.indexOf(ROOT_TOKENS[i]) === 0 &&
+         CHORD_QUALITIES[t.slice(ROOT_TOKENS[i].length)] !== undefined) return true;
+    }
+    return false;
+  }
+
   function parseChordToken(tok){
     if(!tok) return null;
     var t = String(tok).trim();
 
-    var slash = t.indexOf("/");
-    if(slash >= 0) t = t.slice(0, slash);   // 分數和弦的低音不使用
+    /* 先看整個 token 是不是「根音 + 已知性質」——6/9 這種本身就帶斜線，
+       不先攔下來就會被當成分數和弦切掉。 */
+    if(!matchWhole(t)){
+      var slash = t.indexOf("/");
+      if(slash >= 0) t = t.slice(0, slash);   // 分數和弦的低音不使用
+    }
 
     var root = null;
     for(var i = 0; i < ROOT_TOKENS.length; i++){
