@@ -72,10 +72,31 @@
   .hint{ font-size:11.5px; color:var(--dim); line-height:1.7; margin-top:6px; }
   .hint code{ font-family:"Archivo",monospace; color:var(--paper); }
 
+  .help{ margin-top:9px; font-size:11.5px; color:var(--dim); }
+  .help summary{ cursor:pointer; color:var(--paper); }
+  .help ul{ margin:8px 0 0 18px; line-height:1.9; }
+  .help code{ font-family:"Archivo",monospace; color:var(--amber); }
+  .help b{ color:var(--paper); }
+
+  .seclabel{
+    grid-column:1/-1; font-size:11px; font-weight:700; letter-spacing:.14em;
+    color:var(--amber); margin-top:10px;
+  }
+  .seclabel span{ font-weight:400; color:var(--dim); letter-spacing:.02em; margin-left:8px; }
+  .barno{
+    position:absolute; top:3px; left:5px;
+    font-family:"Archivo",sans-serif; font-size:8.5px; font-weight:700;
+    color:var(--dim);
+  }
+  .summary{
+    margin-top:12px; font-size:12px; color:var(--dim); line-height:1.8;
+  }
+  .summary b{ color:var(--paper); }
+
   .bars{ display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-top:12px; }
-  .bar{ border:1px solid var(--line); border-radius:7px; padding:9px 3px;
+  .bar{ border:1px solid var(--line); border-radius:7px; padding:14px 3px 9px;
         text-align:center; font-family:"Archivo",sans-serif; font-weight:700;
-        font-size:14px; color:var(--paper); }
+        font-size:14px; color:var(--paper); position:relative; }
   .bar.bad{ border-color:var(--bad); color:var(--bad); }
   .bar small{ display:block; font-size:9.5px; color:var(--dim); font-weight:600; margin-top:2px; }
 
@@ -161,15 +182,31 @@
           <option value="3">3/4</option>
         </select>
       </div>
+      <div class="field">
+        <label for="bpm">速度 BPM</label>
+        <input type="number" id="bpm" min="30" max="200" step="1" value="72">
+      </div>
     </div>
 
     <div class="field">
-      <label for="bars">小節（一個空格一小節）</label>
-      <textarea id="bars" placeholder="1 1 4 5&#10;6m 4 1 5"></textarea>
+      <label for="bars">小節</label>
+      <textarea id="bars" rows="6"
+        placeholder="主題: 1 5 6m 4&#10;主題: 1 5 4 4&#10;副歌: 6m 4 1 5 &#215;2"></textarea>
       <p class="hint" id="hint"></p>
+      <details class="help">
+        <summary>寫法說明</summary>
+        <ul>
+          <li><b>一行一段</b>。行首可以寫段落名稱再加冒號，例如 <code>主題: 1 5 6m 4</code></li>
+          <li><b>空格分隔小節</b>。一個 token 一小節</li>
+          <li><b>整行重複</b>：行尾寫 <code>&#215;2</code>（或 <code>x2</code>）</li>
+          <li><b>單一小節重複</b>：<code>1&#215;4</code> 等於 <code>1 1 1 1</code></li>
+          <li>看不懂的 token 會標紅，不會讓整首壞掉</li>
+        </ul>
+      </details>
     </div>
 
     <div class="bars" id="preview"></div>
+    <p class="summary" id="summary"></p>
 
     <div class="btnrow">
       <button class="btn" id="save" type="button">儲存</button>
@@ -234,10 +271,55 @@
     }).catch(function(){ state.songs=[]; $("status").textContent="尚未有曲目"; paintList(); });
   }
 
-  /* ---------- 解析與預覽 ---------- */
-  function tokens(){
-    return $("bars").value.replace(/\|/g," ").split(/\s+/).filter(function(x){ return x; });
+  /* ---------- 解析 ----------
+     一行一段，行首可加「段落名稱:」。
+     ×N 可以放在行尾（整行重複）或單一 token 後面（那一小節重複）。
+     解析結果同時給預覽與儲存用：
+       bars      展開後的平面陣列——跟著彈與掉落練習吃這個，格式不變
+       sections  [{label, from, to}] 小節索引，用來標段落與之後選練習範圍 */
+
+  var REPEAT = /[\u00d7xX*](\d{1,2})$/;   // ×2 / x2 / *2
+
+  function parseChart(text){
+    var bars = [], sections = [];
+    text.split(/\n/).forEach(function(line){
+      var raw = line.trim();
+      if(!raw) return;
+
+      var label = null;
+      var colon = raw.match(/^([^:：]{1,12})[:：]\s*(.*)$/);
+      if(colon){ label = colon[1].trim(); raw = colon[2]; }
+
+      var lineRepeat = 1;
+      var lr = raw.match(REPEAT);
+      if(lr && /\s/.test(raw.slice(0, raw.length - lr[0].length))){
+        lineRepeat = parseInt(lr[1], 10);
+        raw = raw.slice(0, raw.length - lr[0].length).trim();
+      }
+
+      var toks = raw.replace(/\|/g, " ").split(/\s+/).filter(function(x){ return x; });
+      if(!toks.length) return;
+
+      var expanded = [];
+      toks.forEach(function(t){
+        var m = t.match(REPEAT);
+        if(m){
+          var n = parseInt(m[1], 10);
+          var base = t.slice(0, t.length - m[0].length);
+          if(base) for(var i=0;i<n;i++) expanded.push(base);
+        } else expanded.push(t);
+      });
+
+      var from = bars.length;
+      for(var r=0;r<lineRepeat;r++) bars = bars.concat(expanded);
+      sections.push({ label: label, from: from, to: bars.length - 1,
+                      repeat: lineRepeat, len: expanded.length });
+    });
+    return { bars: bars, sections: sections };
   }
+
+  function chart(){ return parseChart($("bars").value); }
+  function tokens(){ return chart().bars; }
   function resolve(tok, key){
     if(state.mode==="chord") return { text:tok, ok:true };
     var m=/^([1-7])(.*)$/.exec(tok);
@@ -247,14 +329,38 @@
   }
   function paintPreview(){
     var p=$("preview"); p.innerHTML="";
-    var key=$("key").value, ts=tokens();
-    ts.forEach(function(t){
-      var r=resolve(t,key);
-      var d=document.createElement("div");
-      d.className="bar"+(r.ok?"":" bad");
-      d.innerHTML=r.text+(r.sub?"<small>"+r.sub+"</small>":"");
-      p.appendChild(d);
+    var key=$("key").value, c=chart(), bad=0;
+
+    c.sections.forEach(function(sec){
+      if(sec.label || c.sections.length > 1){
+        var h=document.createElement("div");
+        h.className="seclabel";
+        h.innerHTML=(sec.label || "第 "+(c.sections.indexOf(sec)+1)+" 行") +
+          "<span>小節 "+(sec.from+1)+"–"+(sec.to+1)+
+          (sec.repeat>1 ? " · 重複 "+sec.repeat+" 次" : "")+"</span>";
+        p.appendChild(h);
+      }
+      for(var i=sec.from;i<=sec.to;i++){
+        var r=resolve(c.bars[i], key);
+        if(!r.ok) bad++;
+        var d=document.createElement("div");
+        d.className="bar"+(r.ok?"":" bad");
+        d.innerHTML='<span class="barno">'+(i+1)+'</span>'+
+                    r.text+(r.sub?"<small>"+r.sub+"</small>":"");
+        p.appendChild(d);
+      }
     });
+
+    var sum=$("summary");
+    if(c.bars.length){
+      var beats=parseInt($("beats").value,10)||4;
+      var bpm=parseInt($("bpm").value,10)||72;
+      var secs=c.bars.length*beats*60/bpm;
+      sum.innerHTML="共 <b>"+c.bars.length+"</b> 小節 · "+c.sections.length+" 段 · "+
+        "以 BPM "+bpm+" 約 <b>"+Math.floor(secs/60)+" 分 "+Math.round(secs%60)+" 秒</b>"+
+        (bad ? " · <b style=\'color:var(--bad)\'>"+bad+" 個看不懂的 token</b>" : "");
+    } else sum.textContent="";
+
     $("hint").innerHTML = state.mode==="degree"
       ? "用數字：<code>1 4 5 1</code>。要指定品質就寫全：<code>6m 4 1 5sus4</code>。"+
         "改上面的 Key 就整首移調。"
@@ -274,7 +380,7 @@
     state.editing=null;
     $("formTitle").textContent="新增曲目";
     $("title").value=""; $("bars").value="";
-    $("key").value="G"; $("beats").value="4";
+    $("key").value="G"; $("beats").value="4"; $("bpm").value="72";
     setMode("degree"); paintPreview();
   }
   function edit(id){
@@ -283,8 +389,9 @@
     state.editing=id;
     $("formTitle").textContent="編輯曲目";
     $("title").value=s.title;
-    $("bars").value=s.bars.join(" ");
+    $("bars").value=s.src || s.bars.join(" ");   // 舊資料沒有 src，退回平面陣列
     $("key").value=s.key; $("beats").value=String(s.beats);
+    $("bpm").value=String(s.bpm || 72);
     setMode(s.mode);
     window.scrollTo({top:0,behavior:"smooth"});
   }
@@ -293,9 +400,14 @@
     var t=$("title").value.trim(), ts=tokens();
     if(!t){ alert("請填曲名"); return; }
     if(!ts.length){ alert("請至少填一個小節"); return; }
+    var c=chart();
     var rec={ id: state.editing || ("s"+Date.now()),
       title:t, mode:state.mode, key:$("key").value,
-      beats:parseInt($("beats").value,10), bars:ts };
+      beats:parseInt($("beats").value,10),
+      bpm:parseInt($("bpm").value,10)||72,
+      /* bars 是展開後的平面陣列，跟著彈與掉落練習吃這個，格式沒變。
+         src 留原始文字，重新編輯時不會失去段落與重複記號。 */
+      bars:c.bars, src:$("bars").value, sections:c.sections };
     if(state.editing){
       var i=state.songs.findIndex(function(x){ return x.id===state.editing; });
       state.songs[i]=rec;
@@ -315,9 +427,14 @@
     state.songs.forEach(function(s){
       var d=document.createElement("div"); d.className="song";
       var info=document.createElement("div"); info.className="t";
+      var mins=s.bars.length*s.beats*60/(s.bpm||72);
       info.innerHTML=s.title+'<div class="m">'+
         (s.mode==="degree"?"級數 · key of "+s.key:"和弦名")+
-        "　"+s.beats+"/4　"+s.bars.length+" 小節</div>";
+        "　"+s.beats+"/4　BPM "+(s.bpm||72)+
+        "　"+s.bars.length+" 小節"+
+        (s.sections&&s.sections.length>1 ? "（"+s.sections.length+" 段）" : "")+
+        "　約 "+Math.floor(mins/60)+":"+String(Math.round(mins%60)).padStart(2,"0")+
+        "</div>";
       var be=document.createElement("button"); be.textContent="編輯";
       be.addEventListener("click",function(){ edit(s.id); });
       var bd=document.createElement("button"); bd.textContent="刪除";
@@ -448,6 +565,8 @@
   });
   $("bars").addEventListener("input",paintPreview);
   $("key").addEventListener("change",paintPreview);
+  $("beats").addEventListener("change",paintPreview);
+  $("bpm").addEventListener("input",paintPreview);
 
   setMode("degree"); paintPreview();
   load();

@@ -336,6 +336,8 @@
           beats: rec.beats,
           bars: bars,
           mine: true,
+          bpm: rec.bpm || null,
+          sections: rec.sections || null,
           bad: bad,
           note: (rec.mode === "degree" ? "級數輸入 · key of " + rec.key : "和弦名輸入") +
                 (bad.length ? "　⚠ 認不得的和弦：" + bad.join(" ") : "")
@@ -547,13 +549,19 @@
   }
   buildSongList();
   sel.addEventListener("change",function(){
-    S.song=sel.value; hits={}; buildLamps(); paintMeta(); paintChart(); restart();
+    S.song=sel.value; hits={};
+    /* 自建曲目自己帶速度，選到就套用——省得每次手動調 */
+    var sg=song();
+    if(sg && sg.bpm){ S.bpm=sg.bpm; $("bv").textContent=S.bpm; }
+    buildLamps(); paintMeta(); paintChart(); restart();
   });
 
   function paintMeta(){
     var sg=song();
     $("meta").textContent="Key of "+sg.key+"　"+sg.beats+"/4　"+
-      sg.bars.length+" 小節　·　"+sg.note;
+      sg.bars.length+" 小節"+
+      (sg.sections && sg.sections.length>1 ? "（"+sg.sections.length+" 段）" : "")+
+      "　·　"+sg.note;
   }
 
   buildLamps(); paintMeta(); paintChart(); paintFeedback();
